@@ -2,6 +2,14 @@
 import { Component } from '../core/Component';
 
 export const DEFAULT_SCRIPT_TEMPLATE = (entityName: string) => `// Script for entity: ${entityName}
+// Available globals: entity, transform, input, time, scene, assets, console
+//
+// entity.tag          — get/set the entity tag
+// entity.applyForce(x, y) — apply a force (needs RigidBody2D)
+// assets.spawn("PrefabName", x, y) — spawn a prefab at position
+// scene.destroy({ name: "Enemy" }) — destroy an entity
+//
+// Collision callback receives: { name, tag, isTrigger }
 
 function onStart() {
   // Called once when the scene starts
@@ -10,6 +18,11 @@ function onStart() {
 function onUpdate(deltaTime) {
   // Called every frame
   // transform.x += 100 * deltaTime;
+}
+
+function onCollision(other) {
+  // Called when colliding with another entity (needs Collider2D)
+  // if (other.tag === "Enemy") { console.log("Hit enemy!"); }
 }
 
 function onDestroy() {

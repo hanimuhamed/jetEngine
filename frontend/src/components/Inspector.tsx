@@ -45,6 +45,7 @@ function Inspector() {
   const cameraEntityId = useEngineStore(s => s.cameraEntityId);
   const addComponentToEntity = useEngineStore(s => s.addComponentToEntity);
   const removeComponentFromEntity = useEngineStore(s => s.removeComponentFromEntity);
+  const setEntityTag = useEngineStore(s => s.setEntityTag);
   const _tick = useEngineStore(s => s._tick);
   void _tick; // subscribe to tick for reactivity
 
@@ -95,6 +96,15 @@ function Inspector() {
       <div className="inspector-entity-name">
         {isCamera && <span className="camera-badge">📷 </span>}
         {entity.name}
+      </div>
+      <div className="inspector-tag-row">
+        <label className="inspector-tag-label">Tag</label>
+        <input
+          type="text"
+          className="inspector-text-input"
+          value={entity.tag}
+          onChange={(e) => setEntityTag(entity.id, e.target.value)}
+        />
       </div>
       {components.map(comp => (
         <div key={comp.id} className="inspector-component">

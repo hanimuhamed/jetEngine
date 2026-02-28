@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useEngineStore } from "../store/engineStore";
+import { SceneSerializer } from "../engine/scene/SceneSerializer";
 import type { Entity } from "../engine/core/Entity";
 
 function Hierarchy() {
@@ -10,6 +11,7 @@ function Hierarchy() {
   const addEntity = useEngineStore((s) => s.addEntity);
   const removeEntity = useEngineStore((s) => s.removeEntity);
   const renameEntity = useEngineStore((s) => s.renameEntity);
+  const reorderEntity = useEngineStore((s) => s.reorderEntity);
   const _tick = useEngineStore((s) => s._tick);
   void _tick;
 
@@ -59,6 +61,7 @@ function Hierarchy() {
             cameraEntityId={cameraEntityId}
             onSelect={selectEntity}
             onRename={renameEntity}
+            onReorder={reorderEntity}
           />
         ))}
       </div>
@@ -73,6 +76,7 @@ function HierarchyItem({
   cameraEntityId,
   onSelect,
   onRename,
+  onReorder,
 }: {
   entity: Entity;
   depth: number;
@@ -80,10 +84,13 @@ function HierarchyItem({
   cameraEntityId: string;
   onSelect: (id: string) => void;
   onRename: (id: string, name: string) => void;
+  onReorder: (entityId: string, targetId: string, position: 'before' | 'after' | 'inside') => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(entity.name);
   const [expanded, setExpanded] = useState(true);
+  const [dropZone, setDropZone] = useState<'top' | 'middle' | 'bottom' | null>(null);
+  const itemRef = useRef<HTMLDivElement>(null);
 
   const selected = entity.id === selectedId;
   const isCamera = entity.id === cameraEntityId;
@@ -113,13 +120,71 @@ function HierarchyItem({
     [entity.name]
   );
 
+  // ── Drag source: entity from hierarchy ──
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    e.dataTransfer.setData('application/jet-entity-id', entity.id);
+    // Also serialize for asset panel drops (prefab creation)
+    e.dataTransfer.setData('application/jet-entity-json', SceneSerializer.serializeEntity(entity));
+    e.dataTransfer.setData('application/jet-entity-name', entity.name);
+    e.dataTransfer.effectAllowed = 'move';
+  }, [entity]);
+
+  // ── Drop target: determine zone (top/middle/bottom) ──
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = itemRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const y = e.clientY - rect.top;
+    const h = rect.height;
+    if (y < h * 0.25) {
+      setDropZone('top');
+    } else if (y > h * 0.75) {
+      setDropZone('bottom');
+    } else {
+      setDropZone('middle');
+    }
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDropZone(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const draggedId = e.dataTransfer.getData('application/jet-entity-id');
+    if (!draggedId || draggedId === entity.id) {
+      setDropZone(null);
+      return;
+    }
+    if (dropZone === 'top') {
+      onReorder(draggedId, entity.id, 'before');
+    } else if (dropZone === 'bottom') {
+      onReorder(draggedId, entity.id, 'after');
+    } else {
+      // middle = make child
+      onReorder(draggedId, entity.id, 'inside');
+    }
+    setDropZone(null);
+  }, [entity.id, dropZone, onReorder]);
+
+  const dropClass = dropZone === 'top' ? 'drop-top' : dropZone === 'bottom' ? 'drop-bottom' : dropZone === 'middle' ? 'drop-middle' : '';
+
   return (
     <div>
       <div
-        className={`tree-item ${selected ? "tree-item-selected" : ""}`}
+        ref={itemRef}
+        className={`tree-item ${selected ? "tree-item-selected" : ""} ${dropClass}`}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => onSelect(entity.id)}
         onDoubleClick={handleDoubleClick}
+        draggable={!isCamera}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         {/* Arrow for collapsible children */}
         {hasChildren ? (
@@ -167,6 +232,7 @@ function HierarchyItem({
           cameraEntityId={cameraEntityId}
           onSelect={onSelect}
           onRename={onRename}
+          onReorder={onReorder}
         />
       ))}
     </div>

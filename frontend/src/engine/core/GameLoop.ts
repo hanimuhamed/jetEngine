@@ -6,6 +6,8 @@ import { PhysicsSystem } from '../systems/PhysicsSystem';
 import { ScriptRunner } from '../scripting/ScriptRunner';
 import type { TimeInfo, SceneProxy } from '../scripting/ScriptRunner';
 import { Scene } from '../scene/Scene';
+import { SceneSerializer } from '../scene/SceneSerializer';
+import { Transform2D } from '../components/Transform2D';
 
 export type EngineState = 'EDITING' | 'PLAYING' | 'PAUSED';
 
@@ -34,6 +36,12 @@ export class GameLoop {
   private renderer: Renderer2D;
   private inputManager: InputManager;
   private scene: Scene;
+
+  /** Prefab JSON store — set from the engine store before play */
+  public prefabs: Map<string, string> = new Map();
+
+  /** Entities queued for destruction — processed at end of frame */
+  private destroyQueue: Entity[] = [];
 
   /** Callback to sync state back to the store each frame */
   public onFrameCallback: (() => void) | null = null;
@@ -71,6 +79,21 @@ export class GameLoop {
           return all.find(e => e.name === name) ?? null;
         },
         getAllEntities: () => collectAllEntities(this.scene.entities),
+        spawnPrefab: (prefabName: string, x: number, y: number) => {
+          const json = this.prefabs.get(prefabName);
+          if (!json) return null;
+          const entity = SceneSerializer.deserializeEntity(json);
+          const transform = entity.getComponent<Transform2D>('Transform2D');
+          if (transform) {
+            transform.position.x = x;
+            transform.position.y = y;
+          }
+          this.scene.addEntity(entity);
+          return entity;
+        },
+        destroyEntity: (entity: Entity) => {
+          this.destroyQueue.push(entity);
+        },
       };
       this.scriptRunner.startAll(
         allEntities,
@@ -127,6 +150,20 @@ export class GameLoop {
 
     // Update physics
     this.physicsSystem.update(allEntities, dt);
+
+    // Dispatch collision events to scripts
+    this.scriptRunner.dispatchCollisions(this.physicsSystem.collisionEvents);
+
+    // Process destroy queue
+    for (const entity of this.destroyQueue) {
+      if (entity.parent) {
+        entity.parent.removeChild(entity.id);
+      } else {
+        this.scene.removeEntity(entity.id);
+      }
+      entity.destroy();
+    }
+    this.destroyQueue = [];
 
     // Sync camera position from camera entity transform
     this.renderer.syncCameraFromEntity();

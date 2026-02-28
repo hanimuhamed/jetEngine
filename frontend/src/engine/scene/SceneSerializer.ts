@@ -1,4 +1,5 @@
 // engine/scene/SceneSerializer.ts
+import { v4 as uuidv4 } from 'uuid';
 import { Entity } from '../core/Entity';
 import { Component } from '../core/Component';
 import { Transform2D } from '../components/Transform2D';
@@ -17,6 +18,7 @@ export interface SerializedScene {
 export interface SerializedEntity {
   id: string;
   name: string;
+  tag: string;
   active: boolean;
   components: Record<string, unknown>[];
   children?: SerializedEntity[];
@@ -46,6 +48,7 @@ function serializeEntity(entity: Entity): SerializedEntity {
   return {
     id: entity.id,
     name: entity.name,
+    tag: entity.tag,
     active: entity.active,
     components: entity.getComponentsList().map(c => c.serialize()),
     children: entity.children.length > 0
@@ -56,6 +59,7 @@ function serializeEntity(entity: Entity): SerializedEntity {
 
 function deserializeEntity(data: SerializedEntity): Entity {
   const entity = new Entity(data.name, data.id);
+  entity.tag = data.tag ?? 'Untagged';
   entity.active = data.active;
 
   for (const compData of data.components) {
@@ -70,6 +74,31 @@ function deserializeEntity(data: SerializedEntity): Entity {
   if (data.children) {
     for (const childData of data.children) {
       const child = deserializeEntity(childData);
+      entity.addChild(child);
+    }
+  }
+
+  return entity;
+}
+
+/** Deserialize an entity with fresh IDs (for spawning prefabs) */
+function deserializeEntityNewIds(data: SerializedEntity): Entity {
+  const entity = new Entity(data.name, uuidv4());
+  entity.tag = data.tag ?? 'Untagged';
+  entity.active = data.active;
+
+  for (const compData of data.components) {
+    const type = compData.type as string;
+    const component = createComponentFromType(type);
+    if (component) {
+      component.deserialize(compData);
+      entity.addComponent(component);
+    }
+  }
+
+  if (data.children) {
+    for (const childData of data.children) {
+      const child = deserializeEntityNewIds(childData);
       entity.addChild(child);
     }
   }
@@ -103,5 +132,16 @@ export class SceneSerializer {
   static fromJSON(json: string): Scene {
     const data = JSON.parse(json) as SerializedScene;
     return SceneSerializer.deserialize(data);
+  }
+
+  /** Serialize a single entity (and its children) for prefab storage */
+  static serializeEntity(entity: Entity): string {
+    return JSON.stringify(serializeEntity(entity), null, 2);
+  }
+
+  /** Deserialize a single entity from prefab JSON. Generates new IDs so each spawn is unique. */
+  static deserializeEntity(json: string): Entity {
+    const data = JSON.parse(json) as SerializedEntity;
+    return deserializeEntityNewIds(data);
   }
 }

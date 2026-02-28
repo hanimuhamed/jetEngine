@@ -23,7 +23,9 @@ export interface Asset {
   id: string;
   name: string;
   url: string;
-  type: 'image';
+  type: 'image' | 'prefab';
+  /** For prefabs: serialized entity JSON */
+  prefabJson?: string;
 }
 
 // ─── Camera entity ID constant ─────────────────────
@@ -48,7 +50,10 @@ export interface EngineStore {
   addEntity: (name?: string, parentId?: string | null) => Entity;
   removeEntity: (id: string) => void;
   renameEntity: (id: string, newName: string) => void;
+  setEntityTag: (id: string, tag: string) => void;
   reparentEntity: (entityId: string, newParentId: string | null) => void;
+  reorderEntity: (entityId: string, targetId: string, position: 'before' | 'after' | 'inside') => void;
+  spawnPrefab: (prefabName: string, x: number, y: number) => Entity | null;
 
   // Component CRUD
   addComponentToEntity: (entityId: string, componentType: string) => void;
@@ -82,6 +87,7 @@ export interface EngineStore {
   // Assets
   assets: Asset[];
   addAsset: (name: string, url: string) => void;
+  addPrefabAsset: (name: string, entityJson: string) => void;
   removeAsset: (id: string) => void;
 
   // Script editing — now supports specific script component id
@@ -223,6 +229,15 @@ export const useEngineStore = create<EngineStore>((set, get) => {
       }
     },
 
+    setEntityTag: (id, tag) => {
+      const { scene } = get();
+      const entity = findEntityInTree(scene.entities, id);
+      if (entity) {
+        entity.tag = tag;
+        set({ entities: [...scene.entities], _tick: get()._tick + 1 });
+      }
+    },
+
     reparentEntity: (entityId, newParentId) => {
       const { scene, cameraEntityId } = get();
       // Can't reparent camera
@@ -243,6 +258,67 @@ export const useEngineStore = create<EngineStore>((set, get) => {
       }
 
       set({ entities: [...scene.entities] });
+    },
+
+    reorderEntity: (entityId, targetId, position) => {
+      const { scene, cameraEntityId } = get();
+      if (entityId === cameraEntityId) return;
+      if (entityId === targetId) return;
+
+      // Prevent making something a child of itself or its descendant
+      const isDescendant = (parentId: string, childId: string): boolean => {
+        const parent = findEntityInTree(scene.entities, parentId);
+        if (!parent) return false;
+        for (const c of parent.children) {
+          if (c.id === childId) return true;
+          if (isDescendant(c.id, childId)) return true;
+        }
+        return false;
+      };
+      if (position === 'inside' && isDescendant(entityId, targetId)) return;
+
+      const entity = detachEntity(scene, entityId);
+      if (!entity) return;
+
+      if (position === 'inside') {
+        // Make child of target
+        const target = findEntityInTree(scene.entities, targetId);
+        if (target) {
+          target.addChild(entity);
+        } else {
+          scene.addEntity(entity);
+        }
+      } else {
+        // Insert before/after target in the same parent
+        const targetEntity = findEntityInTree(scene.entities, targetId);
+        if (!targetEntity) { scene.addEntity(entity); }
+        else {
+          const siblings = targetEntity.parent ? targetEntity.parent.children : scene.entities;
+          const idx = siblings.findIndex(e => e.id === targetId);
+          const insertIdx = position === 'after' ? idx + 1 : idx;
+          siblings.splice(insertIdx, 0, entity);
+          entity.parent = targetEntity.parent ?? null;
+        }
+      }
+
+      set({ entities: [...scene.entities] });
+    },
+
+    spawnPrefab: (prefabName, x, y) => {
+      const { scene, assets } = get();
+      const prefabAsset = assets.find(a => a.type === 'prefab' && a.name === prefabName);
+      if (!prefabAsset || !prefabAsset.prefabJson) return null;
+
+      const entity = SceneSerializer.deserializeEntity(prefabAsset.prefabJson);
+      // Set position
+      const transform = entity.getComponent<Transform2D>('Transform2D');
+      if (transform) {
+        transform.position.x = x;
+        transform.position.y = y;
+      }
+      scene.addEntity(entity);
+      set({ entities: [...scene.entities], _tick: get()._tick + 1 });
+      return entity;
     },
 
     addComponentToEntity: (entityId, componentType) => {
@@ -364,6 +440,15 @@ export const useEngineStore = create<EngineStore>((set, get) => {
       }
 
       gl.setScene(state.scene);
+
+      // Pass prefab assets to game loop
+      gl.prefabs.clear();
+      for (const asset of state.assets) {
+        if (asset.type === 'prefab' && asset.prefabJson) {
+          gl.prefabs.set(asset.name, asset.prefabJson);
+        }
+      }
+
       gl.play();
       set({ engineState: 'PLAYING' });
     },
@@ -453,6 +538,9 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     assets: [],
     addAsset: (name, url) => {
       set({ assets: [...get().assets, { id: uuidv4(), name, url, type: 'image' }] });
+    },
+    addPrefabAsset: (name, entityJson) => {
+      set({ assets: [...get().assets, { id: uuidv4(), name, url: '', type: 'prefab', prefabJson: entityJson }] });
     },
     removeAsset: (id) => {
       const { assets } = get();

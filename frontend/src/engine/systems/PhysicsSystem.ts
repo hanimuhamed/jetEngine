@@ -7,6 +7,13 @@ import { Collider2D } from '../components/Collider2D';
 
 const GRAVITY = new Vec2(0, -400); // pixels/s² downward (Y-up convention)
 
+/** Collision event emitted each frame for overlapping pairs */
+export interface CollisionEvent {
+  entityA: Entity;
+  entityB: Entity;
+  isTrigger: boolean;
+}
+
 interface AABB {
   minX: number;
   minY: number;
@@ -37,7 +44,12 @@ function aabbOverlap(a: AABB, b: AABB): boolean {
 }
 
 export class PhysicsSystem {
+  /** Collision events from the last update — consumed by ScriptRunner */
+  public collisionEvents: CollisionEvent[] = [];
+
   update(entities: Entity[], dt: number): void {
+    this.collisionEvents = [];
+
     // Apply gravity and velocity
     for (const entity of entities) {
       const rb = entity.getComponent<RigidBody2D>('RigidBody2D');
@@ -78,9 +90,13 @@ export class PhysicsSystem {
         if (aabbOverlap(aabb_a, aabb_b)) {
           const colliderA = a.getComponent<Collider2D>('Collider2D')!;
           const colliderB = b.getComponent<Collider2D>('Collider2D')!;
+          const isTrigger = colliderA.isTrigger || colliderB.isTrigger;
+
+          // Emit collision event for both entities
+          this.collisionEvents.push({ entityA: a, entityB: b, isTrigger });
 
           // If either is trigger, skip physics response
-          if (colliderA.isTrigger || colliderB.isTrigger) continue;
+          if (isTrigger) continue;
 
           this.resolveCollision(a, b, aabb_a, aabb_b);
         }

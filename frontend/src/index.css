@@ -913,3 +913,76 @@ input[type="checkbox"] {
   color: #ffcc4a;
   font-weight: 600;
 }
+
+/* ─── Hierarchy drag & drop indicators ─── */
+.tree-item.drop-top {
+  border-top: 2px solid #4a9eff;
+}
+
+.tree-item.drop-bottom {
+  border-bottom: 2px solid #4a9eff;
+}
+
+.tree-item.drop-middle {
+  background: #4a9eff22;
+  outline: 1px dashed #4a9eff;
+}
+
+.tree-item[draggable="true"] {
+  cursor: grab;
+}
+
+.tree-item[draggable="true"]:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}
+
+/* ─── Inspector tag row ────────────────── */
+.inspector-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid #1a1a1f;
+  margin-bottom: 8px;
+}
+
+.inspector-tag-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+/* ─── Prefab assets ────────────────────── */
+.asset-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.asset-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.prefab-item {
+  border: 1px dashed #4a9eff44;
+}
+
+.prefab-icon {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: #1a1a2e;
+  border-radius: 4px;
+}

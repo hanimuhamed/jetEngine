@@ -1,8 +1,11 @@
 // engine/scripting/ScriptRunner.ts — Sandboxed script execution
 import { Entity } from '../core/Entity';
 import { InputManager } from '../core/InputManager';
+import { Vec2 } from '../core/Math2D';
 import { Transform2D } from '../components/Transform2D';
+import { RigidBody2D } from '../components/RigidBody2D';
 import { ScriptComponent } from '../components/ScriptComponent';
+import type { CollisionEvent } from '../systems/PhysicsSystem';
 
 export interface TimeInfo {
   deltaTime: number;
@@ -13,12 +16,15 @@ export interface TimeInfo {
 export interface SceneProxy {
   getEntityByName(name: string): Entity | null;
   getAllEntities(): Entity[];
+  spawnPrefab(prefabName: string, x: number, y: number): Entity | null;
+  destroyEntity(entity: Entity): void;
 }
 
 interface CompiledScript {
   onStart?: () => void;
   onUpdate?: (deltaTime: number) => void;
   onDestroy?: () => void;
+  onCollision?: (other: unknown) => void;
 }
 
 // Console log entry
@@ -106,9 +112,15 @@ export class ScriptRunner {
       const entityProxy = {
         id: entity.id,
         name: entity.name,
+        get tag() { return entity.tag; },
+        set tag(v: string) { entity.tag = v; },
         getComponent: (type: string) => entity.getComponent(type),
         addComponent: () => { /* not allowed at runtime */ },
-        destroy: () => entity.destroy(),
+        destroy: () => sceneProxy.destroyEntity(entity),
+        applyForce: (x: number, y: number) => {
+          const rb = entity.getComponent<RigidBody2D>('RigidBody2D');
+          if (rb) rb.applyForce(new Vec2(x, y));
+        },
       };
 
       const inputProxy = {
@@ -127,6 +139,26 @@ export class ScriptRunner {
       const sceneProxyObj = {
         getEntityByName: (name: string) => sceneProxy.getEntityByName(name),
         getAllEntities: () => sceneProxy.getAllEntities(),
+        spawn: (prefabName: string, x: number, y: number) => {
+          const spawned = sceneProxy.spawnPrefab(prefabName, x, y);
+          return spawned ? { id: spawned.id, name: spawned.name, tag: spawned.tag } : null;
+        },
+        destroy: (target: { id?: string; name?: string }) => {
+          let e: Entity | null = null;
+          if (target.id) {
+            e = sceneProxy.getAllEntities().find(ent => ent.id === target.id) ?? null;
+          } else if (target.name) {
+            e = sceneProxy.getEntityByName(target.name);
+          }
+          if (e) sceneProxy.destroyEntity(e);
+        },
+      };
+
+      const assetsProxy = {
+        spawn: (prefabName: string, x: number, y: number) => {
+          const spawned = sceneProxy.spawnPrefab(prefabName, x, y);
+          return spawned ? { id: spawned.id, name: spawned.name, tag: spawned.tag } : null;
+        },
       };
 
       const sandboxConsole = createSandboxConsole();
@@ -139,17 +171,19 @@ export class ScriptRunner {
         'input',
         'time',
         'scene',
+        'assets',
         'console',
         `
-        var __onStart, __onUpdate, __onDestroy;
+        var __onStart, __onUpdate, __onDestroy, __onCollision;
         (function() {
           ${script.scriptSource}
 
           if (typeof onStart === 'function') __onStart = onStart;
           if (typeof onUpdate === 'function') __onUpdate = onUpdate;
           if (typeof onDestroy === 'function') __onDestroy = onDestroy;
+          if (typeof onCollision === 'function') __onCollision = onCollision;
         })();
-        return { onStart: __onStart, onUpdate: __onUpdate, onDestroy: __onDestroy };
+        return { onStart: __onStart, onUpdate: __onUpdate, onDestroy: __onDestroy, onCollision: __onCollision };
         `
       );
 
@@ -159,6 +193,7 @@ export class ScriptRunner {
         inputProxy,
         timeProxy,
         sceneProxyObj,
+        assetsProxy,
         sandboxConsole
       );
 
@@ -207,6 +242,35 @@ export class ScriptRunner {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         emitConsoleEntry({ level: 'error', message: `[onUpdate] ${key}: ${msg}`, timestamp: Date.now() });
+      }
+    }
+  }
+
+  /** Dispatch collision events from physics to script onCollision callbacks */
+  dispatchCollisions(events: CollisionEvent[]): void {
+    for (const event of events) {
+      // For entity A, call onCollision with info about B
+      this.callCollisionForEntity(event.entityA, event.entityB, event.isTrigger);
+      // For entity B, call onCollision with info about A
+      this.callCollisionForEntity(event.entityB, event.entityA, event.isTrigger);
+    }
+  }
+
+  private callCollisionForEntity(self: Entity, other: Entity, isTrigger: boolean): void {
+    // Find all compiled scripts for this entity
+    for (const [key, compiled] of this.compiledScripts) {
+      if (!key.startsWith(self.id + '::')) continue;
+      if (!compiled.onCollision) continue;
+      try {
+        compiled.onCollision({
+          id: other.id,
+          name: other.name,
+          tag: other.tag,
+          isTrigger,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        emitConsoleEntry({ level: 'error', message: `[onCollision] "${self.name}": ${msg}`, timestamp: Date.now() });
       }
     }
   }

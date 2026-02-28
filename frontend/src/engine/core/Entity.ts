@@ -5,6 +5,7 @@ import { Component } from './Component';
 export class Entity {
   public readonly id: string;
   public name: string;
+  public tag: string;
   public active: boolean;
   // Components stored by their unique id to support multiple of the same type
   public components: Map<string, Component>;
@@ -14,6 +15,7 @@ export class Entity {
   constructor(name: string = 'New Entity', id?: string) {
     this.id = id ?? uuidv4();
     this.name = name;
+    this.tag = 'Untagged';
     this.active = true;
     this.components = new Map();
     this.children = [];
