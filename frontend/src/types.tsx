@@ -35,4 +35,5 @@ export type DraggableNumberProps = {
   value: number;
   onChange: (value: number) => void;
   label?: string;
+  min?: number;
 };

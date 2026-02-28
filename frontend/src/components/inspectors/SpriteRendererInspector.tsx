@@ -4,8 +4,19 @@ import { useEngineStore } from '../../store/engineStore';
 import { SpriteRenderer } from '../../engine/components/SpriteRenderer';
 import type { ShapeType } from '../../engine/components/SpriteRenderer';
 import DraggableNumber from '../../io/draggableNumber';
+import type { Entity } from '../../engine/core/Entity';
 
 const SHAPE_OPTIONS: ShapeType[] = ['rectangle', 'circle', 'triangle', 'sprite'];
+
+/** Find entity in nested tree */
+function findInTree(list: Entity[], id: string): Entity | undefined {
+  for (const e of list) {
+    if (e.id === id) return e;
+    const found = findInTree(e.children, id);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 export function SpriteRendererInspector({ entityId }: { entityId: string }) {
   const updateComponent = useEngineStore(s => s.updateComponent);
@@ -13,7 +24,7 @@ export function SpriteRendererInspector({ entityId }: { entityId: string }) {
   const _tick = useEngineStore(s => s._tick);
   void _tick;
 
-  const entity = entities.find(e => e.id === entityId);
+  const entity = findInTree(entities, entityId);
   const sprite = entity?.getComponent<SpriteRenderer>('SpriteRenderer');
   if (!sprite) return null;
 

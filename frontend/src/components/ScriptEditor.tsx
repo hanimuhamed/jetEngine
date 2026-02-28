@@ -126,7 +126,7 @@ function ScriptEditor() {
     <div className="script-editor">
       <div className="script-editor-header">
         <span className="script-editor-title">
-          📝 {script.scriptName} — {entity.name}
+          {script.scriptName} — {entity.name}
         </span>
         <div className="script-editor-actions">
           <span className="script-autosave-hint">auto-saves</span>

@@ -45,7 +45,7 @@ export function ScriptComponentInspector({ entityId, componentId }: { entityId: 
         className="inspector-open-script-btn"
         onClick={() => setEditingScript(entityId, componentId)}
       >
-        ✏️ Open in Script Editor
+        Open in Script Editor
       </button>
     </div>
   );

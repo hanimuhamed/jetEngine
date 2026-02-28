@@ -15,7 +15,7 @@ export class Renderer2D {
   private _canvas: HTMLCanvasElement | null = null;
   public camera: Camera2D = { position: Vec2.zero(), zoom: 1 };
 
-  /** The camera entity reference — set by game loop */
+  /** The camera entity reference — set by game loop or editor */
   public cameraEntity: Entity | null = null;
 
   attach(canvas: HTMLCanvasElement): void {
@@ -25,6 +25,15 @@ export class Renderer2D {
 
   get canvas(): HTMLCanvasElement | null {
     return this._canvas;
+  }
+
+  /** Sync renderer camera position/zoom from the Camera entity's Transform2D */
+  syncCameraFromEntity(): void {
+    if (!this.cameraEntity) return;
+    const t = this.cameraEntity.getComponent<Transform2D>('Transform2D');
+    if (t) {
+      this.camera.position = t.position.clone();
+    }
   }
 
   /** Convert world position to screen position */
@@ -95,39 +104,64 @@ export class Renderer2D {
       ctx.lineTo(w, y);
     }
     ctx.stroke();
+  }
 
-    // Draw axis lines
-    const origin = this.worldToScreen(Vec2.zero());
-    ctx.strokeStyle = '#ff444488';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(origin.x, 0);
-    ctx.lineTo(origin.x, h);
-    ctx.stroke();
+  /** Compute world transform for an entity, taking parent hierarchy into account */
+  getWorldTransform(entity: Entity): { position: Vec2; rotation: number; scaleX: number; scaleY: number } {
+    const t = entity.getComponent<Transform2D>('Transform2D');
+    if (!t) return { position: Vec2.zero(), rotation: 0, scaleX: 1, scaleY: 1 };
 
-    ctx.strokeStyle = '#44ff4488';
-    ctx.beginPath();
-    ctx.moveTo(0, origin.y);
-    ctx.lineTo(w, origin.y);
-    ctx.stroke();
+    const localX = t.position.x;
+    const localY = t.position.y;
+    const localRot = t.rotation;
+    const localScaleX = t.scale.x;
+    const localScaleY = t.scale.y;
+
+    if (!entity.parent) {
+      return { position: new Vec2(localX, localY), rotation: localRot, scaleX: localScaleX, scaleY: localScaleY };
+    }
+
+    // Recursively get parent world transform
+    const pw = this.getWorldTransform(entity.parent);
+
+    // Apply parent scale, then parent rotation, then parent translation
+    const rad = (pw.rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    // Scale the local position by parent scale, then rotate by parent rotation
+    const scaledX = localX * pw.scaleX;
+    const scaledY = localY * pw.scaleY;
+    const worldX = pw.position.x + scaledX * cos - scaledY * sin;
+    const worldY = pw.position.y + scaledX * sin + scaledY * cos;
+
+    return {
+      position: new Vec2(worldX, worldY),
+      rotation: pw.rotation + localRot,
+      scaleX: pw.scaleX * localScaleX,
+      scaleY: pw.scaleY * localScaleY,
+    };
   }
 
   renderEntity(entity: Entity): void {
     if (!this.ctx || !entity.active) return;
 
-    const transform = entity.getComponent<Transform2D>('Transform2D');
-    const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
+    // Skip rendering the camera entity itself
+    if (entity.hasComponent('Camera2DComponent')) return;
 
-    if (!transform || !sprite || !sprite.visible) return;
+    const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
+    if (!sprite || !sprite.visible) return;
+
+    const world = this.getWorldTransform(entity);
 
     const ctx = this.ctx;
-    const screenPos = this.worldToScreen(transform.position);
-    const w = sprite.width * transform.scale.x * this.camera.zoom;
-    const h = sprite.height * transform.scale.y * this.camera.zoom;
+    const screenPos = this.worldToScreen(world.position);
+    const w = sprite.width * world.scaleX * this.camera.zoom;
+    const h = sprite.height * world.scaleY * this.camera.zoom;
 
     ctx.save();
     ctx.translate(screenPos.x, screenPos.y);
-    ctx.rotate((transform.rotation * Math.PI) / 180);
+    ctx.rotate((world.rotation * Math.PI) / 180);
 
     const image = sprite.getImage();
 
@@ -158,19 +192,20 @@ export class Renderer2D {
   drawSelectionBox(entity: Entity): void {
     if (!this.ctx) return;
 
-    const transform = entity.getComponent<Transform2D>('Transform2D');
+    // Skip camera entity
+    if (entity.hasComponent('Camera2DComponent')) return;
+
     const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
+    const world = this.getWorldTransform(entity);
 
-    if (!transform) return;
-
-    const screenPos = this.worldToScreen(transform.position);
-    const w = (sprite ? sprite.width : 50) * transform.scale.x * this.camera.zoom;
-    const h = (sprite ? sprite.height : 50) * transform.scale.y * this.camera.zoom;
+    const screenPos = this.worldToScreen(world.position);
+    const w = (sprite ? sprite.width : 50) * world.scaleX * this.camera.zoom;
+    const h = (sprite ? sprite.height : 50) * world.scaleY * this.camera.zoom;
 
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(screenPos.x, screenPos.y);
-    ctx.rotate((transform.rotation * Math.PI) / 180);
+    ctx.rotate((world.rotation * Math.PI) / 180);
 
     ctx.strokeStyle = '#4a9eff';
     ctx.lineWidth = 2;
@@ -215,7 +250,7 @@ export class Renderer2D {
     }
   }
 
-  /** Check if a screen-space point hits an entity */
+  /** Check if a screen-space point hits an entity (excludes camera entity) */
   hitTest(entities: Entity[], screenX: number, screenY: number): Entity | null {
     // Reverse order so topmost (highest layer) is checked first
     const sorted = [...entities].sort((a, b) => {
@@ -225,13 +260,16 @@ export class Renderer2D {
     });
 
     for (const entity of sorted) {
-      const transform = entity.getComponent<Transform2D>('Transform2D');
-      const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
-      if (!transform) continue;
+      // Skip camera entity
+      if (entity.hasComponent('Camera2DComponent')) continue;
 
-      const screenPos = this.worldToScreen(transform.position);
-      const w = (sprite ? sprite.width : 50) * transform.scale.x * this.camera.zoom;
-      const h = (sprite ? sprite.height : 50) * transform.scale.y * this.camera.zoom;
+      const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
+      if (!sprite) continue;
+
+      const world = this.getWorldTransform(entity);
+      const screenPos = this.worldToScreen(world.position);
+      const w = sprite.width * world.scaleX * this.camera.zoom;
+      const h = sprite.height * world.scaleY * this.camera.zoom;
 
       if (
         screenX >= screenPos.x - w / 2 &&

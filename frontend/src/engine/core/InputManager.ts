@@ -2,6 +2,8 @@
 import { Vec2 } from './Math2D';
 
 export class InputManager {
+  // Store both e.key ("a", "ArrowLeft") AND e.code ("KeyA", "ArrowLeft")
+  // so scripts can use either format
   private keysDown: Set<string> = new Set();
   private keysPressed: Set<string> = new Set();
   private mouseButtons: Set<number> = new Set();
@@ -9,14 +11,31 @@ export class InputManager {
   private _canvas: HTMLCanvasElement | null = null;
 
   private _onKeyDown = (e: KeyboardEvent) => {
+    // Store both key and code so either works in scripts
     if (!this.keysDown.has(e.key)) {
       this.keysPressed.add(e.key);
     }
+    if (!this.keysDown.has(e.code)) {
+      this.keysPressed.add(e.code);
+    }
     this.keysDown.add(e.key);
+    this.keysDown.add(e.code);
+    // Also store lowercase key for convenience
+    if (e.key.length === 1) {
+      const lower = e.key.toLowerCase();
+      if (!this.keysDown.has(lower)) {
+        this.keysPressed.add(lower);
+      }
+      this.keysDown.add(lower);
+    }
   };
 
   private _onKeyUp = (e: KeyboardEvent) => {
     this.keysDown.delete(e.key);
+    this.keysDown.delete(e.code);
+    if (e.key.length === 1) {
+      this.keysDown.delete(e.key.toLowerCase());
+    }
   };
 
   private _onMouseDown = (e: MouseEvent) => {

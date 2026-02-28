@@ -175,7 +175,7 @@ export const useEngineStore = create<EngineStore>((set, get) => {
       const { scene, cameraEntityId } = get();
       const entity = new Entity(name ?? `Entity_${scene.entities.length}`);
       entity.addComponent(new Transform2D());
-      entity.addComponent(new SpriteRenderer('#4a9eff', 'rectangle', 50, 50));
+      entity.addComponent(new SpriteRenderer('#ffffff', 'rectangle', 50, 50));
 
       if (parentId) {
         const parent = findEntityInTree(scene.entities, parentId);

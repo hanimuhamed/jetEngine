@@ -1,19 +1,23 @@
 import { useState, useRef, useCallback } from "react";
 import type { DraggableNumberProps } from "../types";
 
-function DraggableNumber({ value, onChange, label }: DraggableNumberProps) {
+function DraggableNumber({ value, onChange, label, min }: DraggableNumberProps) {
   const [dragging, setDragging] = useState(false);
   const startYRef = useRef(0);
   const startValueRef = useRef(0);
   const sensitivity = 0.5;
 
+  const clamp = useCallback((v: number) => {
+    return min !== undefined ? Math.max(min, v) : v;
+  }, [min]);
+
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       const deltaY = startYRef.current - e.clientY;
       const newValue = startValueRef.current + deltaY * sensitivity;
-      onChange(parseFloat(newValue.toFixed(2)));
+      onChange(clamp(parseFloat(newValue.toFixed(2))));
     },
-    [onChange]
+    [onChange, clamp]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -41,7 +45,7 @@ function DraggableNumber({ value, onChange, label }: DraggableNumberProps) {
         value={value}
         onChange={(e) => {
           const v = parseFloat(e.target.value);
-          if (!isNaN(v)) onChange(v);
+          if (!isNaN(v)) onChange(clamp(v));
         }}
         onMouseDown={handleMouseDown}
         className={dragging ? "dragging" : ""}

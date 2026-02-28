@@ -63,14 +63,11 @@ function Toolbar() {
       </div>
 
       <div className="toolbar-group">
-        <button className="toolbar-btn" onClick={() => addEntity()} title="Add Entity">
-          + Entity
-        </button>
         <button className="toolbar-btn" onClick={handleSave} title="Save Scene">
-          💾 Save
+          Save
         </button>
         <button className="toolbar-btn" onClick={handleLoad} title="Load Scene">
-          📂 Load
+          Load
         </button>
         <input
           ref={fileInputRef}

@@ -3,6 +3,17 @@ import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { Collider2D } from '../../engine/components/Collider2D';
 import DraggableNumber from '../../io/draggableNumber';
+import type { Entity } from '../../engine/core/Entity';
+
+/** Find entity in nested tree */
+function findInTree(list: Entity[], id: string): Entity | undefined {
+  for (const e of list) {
+    if (e.id === id) return e;
+    const found = findInTree(e.children, id);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 export function Collider2DInspector({ entityId }: { entityId: string }) {
   const updateComponent = useEngineStore(s => s.updateComponent);
@@ -10,7 +21,7 @@ export function Collider2DInspector({ entityId }: { entityId: string }) {
   const _tick = useEngineStore(s => s._tick);
   void _tick;
 
-  const entity = entities.find(e => e.id === entityId);
+  const entity = findInTree(entities, entityId);
   const collider = entity?.getComponent<Collider2D>('Collider2D');
   if (!collider) return null;
 

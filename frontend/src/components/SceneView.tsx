@@ -1,7 +1,7 @@
 // components/SceneView.tsx — Canvas scene view
 import { useRef, useEffect, useCallback } from 'react';
 import { useEngineStore } from '../store/engineStore';
-import { Vec2 } from '../engine/core/Math2D';
+import { Transform2D } from '../engine/components/Transform2D';
 import type { Entity } from '../engine/core/Entity';
 
 /** Recursively flatten entities (including children) */
@@ -40,8 +40,16 @@ function SceneView() {
     if (engineState === 'PLAYING') return;
 
     const renderEditorFrame = () => {
-      const { entities, selectedEntityId, renderer: r } = useEngineStore.getState();
+      const { entities, selectedEntityId, renderer: r, cameraEntityId } = useEngineStore.getState();
       const allEntities = flattenEntities(entities);
+      
+      // Sync camera from camera entity
+      const camEntity = allEntities.find(e => e.id === cameraEntityId);
+      if (camEntity) {
+        r.cameraEntity = camEntity;
+      }
+      r.syncCameraFromEntity();
+
       r.clear();
       r.drawGrid();
       r.renderEntities(allEntities, selectedEntityId);
@@ -89,9 +97,18 @@ function SceneView() {
       const dy = e.clientY - lastMouseRef.current.y;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
 
-      renderer.camera.position = renderer.camera.position.sub(
-        new Vec2(dx / renderer.camera.zoom, dy / renderer.camera.zoom)
-      );
+      // Move the camera entity's transform (panning moves camera, which shifts the scene)
+      const { cameraEntityId, entities } = useEngineStore.getState();
+      const allEntities = flattenEntities(entities);
+      const camEntity = allEntities.find(e => e.id === cameraEntityId);
+      if (camEntity) {
+        const t = camEntity.getComponent<Transform2D>('Transform2D');
+        if (t) {
+          t.position.x -= dx / renderer.camera.zoom;
+          t.position.y -= dy / renderer.camera.zoom;
+          useEngineStore.getState().syncEntities();
+        }
+      }
     }
   }, [renderer]);
 

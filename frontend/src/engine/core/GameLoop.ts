@@ -128,6 +128,9 @@ export class GameLoop {
     // Update physics
     this.physicsSystem.update(allEntities, dt);
 
+    // Sync camera position from camera entity transform
+    this.renderer.syncCameraFromEntity();
+
     // Render — use camera background color during play
     this.renderer.clear(true);
     this.renderer.renderEntities(allEntities, null);

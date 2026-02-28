@@ -3,6 +3,17 @@ import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { RigidBody2D } from '../../engine/components/RigidBody2D';
 import DraggableNumber from '../../io/draggableNumber';
+import type { Entity } from '../../engine/core/Entity';
+
+/** Find entity in nested tree */
+function findInTree(list: Entity[], id: string): Entity | undefined {
+  for (const e of list) {
+    if (e.id === id) return e;
+    const found = findInTree(e.children, id);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 export function RigidBody2DInspector({ entityId }: { entityId: string }) {
   const updateComponent = useEngineStore(s => s.updateComponent);
@@ -10,7 +21,7 @@ export function RigidBody2DInspector({ entityId }: { entityId: string }) {
   const _tick = useEngineStore(s => s._tick);
   void _tick;
 
-  const entity = entities.find(e => e.id === entityId);
+  const entity = findInTree(entities, entityId);
   const rb = entity?.getComponent<RigidBody2D>('RigidBody2D');
   if (!rb) return null;
 
