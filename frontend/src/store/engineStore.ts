@@ -100,6 +100,13 @@ export interface EngineStore {
   addConsoleLog: (entry: ConsoleEntry) => void;
   clearConsoleLogs: () => void;
 
+  // Prefab editing mode
+  editingPrefabId: string | null;
+  editingPrefabEntity: Entity | null;
+  startEditingPrefab: (assetId: string) => void;
+  savePrefab: () => void;
+  cancelPrefabEdit: () => void;
+
   // Force re-render trigger
   _tick: number;
   syncEntities: () => void;
@@ -135,6 +142,16 @@ function findEntityInTree(entities: Entity[], id: string): Entity | null {
     if (found) return found;
   }
   return null;
+}
+
+/** Helper: find entity by id in tree, or in the prefab entity if editing a prefab */
+function findEntityAnywhere(state: { scene: Scene; editingPrefabEntity: Entity | null }, id: string): Entity | null {
+  // Check the prefab entity tree first (if editing a prefab)
+  if (state.editingPrefabEntity) {
+    const found = findEntityInTree([state.editingPrefabEntity], id);
+    if (found) return found;
+  }
+  return findEntityInTree(state.scene.entities, id);
 }
 
 /** Helper: remove entity from its current parent or top-level list */
@@ -221,20 +238,20 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     },
 
     renameEntity: (id, newName) => {
-      const { scene } = get();
-      const entity = findEntityInTree(scene.entities, id);
+      const state = get();
+      const entity = findEntityAnywhere(state, id);
       if (entity) {
         entity.name = newName;
-        set({ entities: [...scene.entities] });
+        set({ entities: [...state.scene.entities], _tick: state._tick + 1 });
       }
     },
 
     setEntityTag: (id, tag) => {
-      const { scene } = get();
-      const entity = findEntityInTree(scene.entities, id);
+      const state = get();
+      const entity = findEntityAnywhere(state, id);
       if (entity) {
         entity.tag = tag;
-        set({ entities: [...scene.entities], _tick: get()._tick + 1 });
+        set({ entities: [...state.scene.entities], _tick: state._tick + 1 });
       }
     },
 
@@ -322,8 +339,8 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     },
 
     addComponentToEntity: (entityId, componentType) => {
-      const { scene } = get();
-      const entity = findEntityInTree(scene.entities, entityId);
+      const state = get();
+      const entity = findEntityAnywhere(state, entityId);
       if (!entity) return;
 
       // For ScriptComponent, allow multiple instances
@@ -359,38 +376,38 @@ export const useEngineStore = create<EngineStore>((set, get) => {
       }
       if (comp) {
         entity.addComponent(comp);
-        set({ entities: [...scene.entities] });
+        set({ entities: [...state.scene.entities], _tick: state._tick + 1 });
       }
     },
 
     removeComponentFromEntity: (entityId, componentId) => {
-      const { scene } = get();
-      const entity = findEntityInTree(scene.entities, entityId);
+      const state = get();
+      const entity = findEntityAnywhere(state, entityId);
       if (entity) {
         entity.removeComponentById(componentId);
-        set({ entities: [...scene.entities] });
+        set({ entities: [...state.scene.entities], _tick: state._tick + 1 });
       }
     },
 
     updateComponent: (entityId, componentType, updater) => {
-      const { scene } = get();
-      const entity = findEntityInTree(scene.entities, entityId);
+      const state = get();
+      const entity = findEntityAnywhere(state, entityId);
       if (!entity) return;
       const comp = entity.getComponent(componentType);
       if (comp) {
         updater(comp);
-        set({ entities: [...scene.entities], _tick: get()._tick + 1 });
+        set({ entities: [...state.scene.entities], _tick: state._tick + 1 });
       }
     },
 
     updateComponentById: (entityId, componentId, updater) => {
-      const { scene } = get();
-      const entity = findEntityInTree(scene.entities, entityId);
+      const state = get();
+      const entity = findEntityAnywhere(state, entityId);
       if (!entity) return;
       const comp = entity.getComponentById(componentId);
       if (comp) {
         updater(comp);
-        set({ entities: [...scene.entities], _tick: get()._tick + 1 });
+        set({ entities: [...state.scene.entities], _tick: state._tick + 1 });
       }
     },
 
@@ -566,6 +583,49 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     syncEntities: () => {
       const { scene } = get();
       set({ entities: [...scene.entities], _tick: get()._tick + 1 });
+    },
+
+    // Prefab editing mode
+    editingPrefabId: null,
+    editingPrefabEntity: null,
+    startEditingPrefab: (assetId) => {
+      const { assets, engineState } = get();
+      if (engineState !== 'EDITING') return; // can only edit prefabs in edit mode
+      const asset = assets.find(a => a.id === assetId);
+      if (!asset || asset.type !== 'prefab' || !asset.prefabJson) return;
+      const entity = SceneSerializer.deserializeEntity(asset.prefabJson);
+      // Center the prefab for editing
+      const transform = entity.getComponent<Transform2D>('Transform2D');
+      if (transform) {
+        transform.position.x = 0;
+        transform.position.y = 0;
+      }
+      set({
+        editingPrefabId: assetId,
+        editingPrefabEntity: entity,
+        selectedEntityId: entity.id,
+      });
+    },
+    savePrefab: () => {
+      const { editingPrefabId, editingPrefabEntity, assets } = get();
+      if (!editingPrefabId || !editingPrefabEntity) return;
+      const json = SceneSerializer.serializeEntity(editingPrefabEntity);
+      const updated = assets.map(a =>
+        a.id === editingPrefabId ? { ...a, prefabJson: json } : a
+      );
+      set({
+        assets: updated,
+        editingPrefabId: null,
+        editingPrefabEntity: null,
+        selectedEntityId: null,
+      });
+    },
+    cancelPrefabEdit: () => {
+      set({
+        editingPrefabId: null,
+        editingPrefabEntity: null,
+        selectedEntityId: null,
+      });
     },
   };
 });

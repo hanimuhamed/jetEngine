@@ -12,13 +12,62 @@ function Hierarchy() {
   const removeEntity = useEngineStore((s) => s.removeEntity);
   const renameEntity = useEngineStore((s) => s.renameEntity);
   const reorderEntity = useEngineStore((s) => s.reorderEntity);
+  const spawnPrefab = useEngineStore((s) => s.spawnPrefab);
+  const editingPrefabId = useEngineStore((s) => s.editingPrefabId);
+  const editingPrefabEntity = useEngineStore((s) => s.editingPrefabEntity);
+  const cancelPrefabEdit = useEngineStore((s) => s.cancelPrefabEdit);
   const _tick = useEngineStore((s) => s._tick);
   void _tick;
 
   const isCamera = selectedEntityId === cameraEntityId;
 
+  // Handle drop of prefabs from AssetPanel into the hierarchy empty area
+  const handleHierarchyDrop = useCallback((e: React.DragEvent) => {
+    const prefabName = e.dataTransfer.getData('application/jet-prefab-name');
+    const prefabJson = e.dataTransfer.getData('application/jet-prefab-json');
+    if (prefabName && prefabJson) {
+      e.preventDefault();
+      e.stopPropagation();
+      spawnPrefab(prefabName, 0, 0);
+    }
+  }, [spawnPrefab]);
+
+  const handleHierarchyDragOver = useCallback((e: React.DragEvent) => {
+    // Allow drop if it's a prefab drag
+    if (e.dataTransfer.types.includes('application/jet-prefab-name')) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, []);
+
+  // If in prefab editing mode, show a special hierarchy
+  if (editingPrefabId && editingPrefabEntity) {
+    return (
+      <div className="hierarchy">
+        <div className="hierarchy-prefab-header">
+          <span className="prefab-edit-badge">📦 Editing Prefab</span>
+          <button className="hierarchy-btn" onClick={cancelPrefabEdit} title="Back to Scene">
+            ← Back
+          </button>
+        </div>
+        <div className="hierarchy-list">
+          <HierarchyItem
+            entity={editingPrefabEntity}
+            depth={0}
+            selectedId={selectedEntityId}
+            cameraEntityId={cameraEntityId}
+            onSelect={selectEntity}
+            onRename={renameEntity}
+            onReorder={reorderEntity}
+            isPrefabMode
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="hierarchy">
+    <div className="hierarchy" onDrop={handleHierarchyDrop} onDragOver={handleHierarchyDragOver}>
       <div className="hierarchy-actions">
         <button
           className="hierarchy-btn"
@@ -77,6 +126,7 @@ function HierarchyItem({
   onSelect,
   onRename,
   onReorder,
+  isPrefabMode,
 }: {
   entity: Entity;
   depth: number;
@@ -85,6 +135,7 @@ function HierarchyItem({
   onSelect: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onReorder: (entityId: string, targetId: string, position: 'before' | 'after' | 'inside') => void;
+  isPrefabMode?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(entity.name);
@@ -144,7 +195,8 @@ function HierarchyItem({
     } else {
       setDropZone('middle');
     }
-    e.dataTransfer.dropEffect = 'move';
+    // Accept both entity reorder and prefab spawn drags
+    e.dataTransfer.dropEffect = e.dataTransfer.types.includes('application/jet-prefab-name') ? 'copy' : 'move';
   }, []);
 
   const handleDragLeave = useCallback(() => {
@@ -154,6 +206,16 @@ function HierarchyItem({
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Check if this is a prefab drop from AssetPanel
+    const prefabName = e.dataTransfer.getData('application/jet-prefab-name');
+    if (prefabName) {
+      // Spawn prefab into the scene
+      useEngineStore.getState().spawnPrefab(prefabName, 0, 0);
+      setDropZone(null);
+      return;
+    }
+
     const draggedId = e.dataTransfer.getData('application/jet-entity-id');
     if (!draggedId || draggedId === entity.id) {
       setDropZone(null);
@@ -202,7 +264,7 @@ function HierarchyItem({
         )}
 
         <span className="entity-icon">
-          {isCamera ? "📷" : "◆"}
+          {isPrefabMode ? "📦" : isCamera ? "📷" : "◆"}
         </span>
 
         {editing ? (
@@ -233,6 +295,7 @@ function HierarchyItem({
           onSelect={onSelect}
           onRename={onRename}
           onReorder={onReorder}
+          isPrefabMode={isPrefabMode}
         />
       ))}
     </div>

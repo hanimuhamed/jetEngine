@@ -10,6 +10,7 @@ function Toolbar() {
   const addEntity = useEngineStore(s => s.addEntity);
   const saveScene = useEngineStore(s => s.saveScene);
   const loadScene = useEngineStore(s => s.loadScene);
+  const editingPrefabId = useEngineStore(s => s.editingPrefabId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = useCallback(() => {
@@ -44,7 +45,7 @@ function Toolbar() {
         {engineState === 'PLAYING' ? (
           <button className="toolbar-btn" onClick={pause} title="Pause">⏸</button>
         ) : (
-          <button className="toolbar-btn toolbar-btn-play" onClick={play} title="Play">▶</button>
+          <button className="toolbar-btn toolbar-btn-play" onClick={play} title="Play" disabled={!!editingPrefabId}>▶</button>
         )}
         <button
           className="toolbar-btn toolbar-btn-stop"

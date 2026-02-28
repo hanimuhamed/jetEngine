@@ -28,6 +28,7 @@ function SceneView() {
   const renderer = useEngineStore(s => s.renderer);
   const selectEntity = useEngineStore(s => s.selectEntity);
   const engineState = useEngineStore(s => s.engineState);
+  const editingPrefabId = useEngineStore(s => s.editingPrefabId);
 
   // Initialize canvas
   useEffect(() => {
@@ -41,7 +42,23 @@ function SceneView() {
     if (engineState === 'PLAYING') return;
 
     const renderEditorFrame = () => {
-      const { entities, selectedEntityId, renderer: r, cameraEntityId } = useEngineStore.getState();
+      const { entities, selectedEntityId, renderer: r, cameraEntityId, editingPrefabId: prefabId, editingPrefabEntity } = useEngineStore.getState();
+
+      // If editing a prefab, render only the prefab entity
+      if (prefabId && editingPrefabEntity) {
+        const prefabEntities = flattenEntities([editingPrefabEntity]);
+        // Use a temporary camera (reset to origin)
+        r.cameraEntity = null;
+        r.camera.position.x = 0;
+        r.camera.position.y = 0;
+        r.camera.zoom = 1;
+        r.clear();
+        r.drawGrid();
+        r.renderEntities(prefabEntities, selectedEntityId);
+        editorRafRef.current = requestAnimationFrame(renderEditorFrame);
+        return;
+      }
+
       const allEntities = flattenEntities(entities);
       
       // Sync camera from camera entity
@@ -64,7 +81,7 @@ function SceneView() {
         cancelAnimationFrame(editorRafRef.current);
       }
     };
-  }, [engineState]);
+  }, [engineState, editingPrefabId]);
 
   // Canvas click — select entity
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -76,7 +93,16 @@ function SceneView() {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const { entities } = useEngineStore.getState();
+    const { entities, editingPrefabId: prefabId, editingPrefabEntity } = useEngineStore.getState();
+
+    // If editing a prefab, hit test against the prefab entity
+    if (prefabId && editingPrefabEntity) {
+      const prefabEntities = flattenEntities([editingPrefabEntity]);
+      const hit = renderer.hitTest(prefabEntities, x, y);
+      selectEntity(hit?.id ?? editingPrefabEntity.id);
+      return;
+    }
+
     const allEntities = flattenEntities(entities);
     const hit = renderer.hitTest(allEntities, x, y);
     selectEntity(hit?.id ?? null);

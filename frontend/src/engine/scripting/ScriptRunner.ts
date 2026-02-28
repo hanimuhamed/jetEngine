@@ -83,6 +83,11 @@ export class ScriptRunner {
   private compiledScripts: Map<string, CompiledScript> = new Map();
   private started: Set<string> = new Set();
 
+  // Cached references for dynamic compilation of spawned entities
+  private _input: InputManager | null = null;
+  private _time: TimeInfo | null = null;
+  private _sceneProxy: SceneProxy | null = null;
+
   compileScript(
     entity: Entity,
     script: ScriptComponent,
@@ -213,6 +218,10 @@ export class ScriptRunner {
   ): void {
     this.compiledScripts.clear();
     this.started.clear();
+    // Store references for later dynamic compilation
+    this._input = input;
+    this._time = time;
+    this._sceneProxy = sceneProxy;
 
     for (const entity of entities) {
       // Support multiple scripts via getScriptComponents
@@ -231,6 +240,35 @@ export class ScriptRunner {
           this.started.add(key);
         }
       }
+    }
+  }
+
+  /**
+   * Compile and start scripts for a single entity (and its children).
+   * Used for entities spawned at runtime (e.g., prefab instances).
+   */
+  compileAndStartEntity(entity: Entity): void {
+    if (!this._input || !this._time || !this._sceneProxy) return;
+    const queue = [entity];
+    while (queue.length > 0) {
+      const e = queue.shift()!;
+      const scripts = e.getComponentsList().filter(c => c.type === 'ScriptComponent') as ScriptComponent[];
+      for (const script of scripts) {
+        const key = `${e.id}::${script.id}`;
+        if (this.compiledScripts.has(key)) continue; // already compiled
+        const compiled = this.compileScript(e, script, this._input, this._time, this._sceneProxy);
+        if (compiled) {
+          this.compiledScripts.set(key, compiled);
+          try {
+            compiled.onStart?.();
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            emitConsoleEntry({ level: 'error', message: `[onStart] "${e.name}": ${msg}`, timestamp: Date.now() });
+          }
+          this.started.add(key);
+        }
+      }
+      queue.push(...e.children);
     }
   }
 

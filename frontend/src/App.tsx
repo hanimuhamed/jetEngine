@@ -16,6 +16,16 @@ export default function App() {
   const topRowRef = useRef<HTMLDivElement>(null);
 
   const editingScriptEntityId = useEngineStore((s) => s.editingScriptEntityId);
+  const editingPrefabId = useEngineStore((s) => s.editingPrefabId);
+  const editingPrefabEntity = useEngineStore((s) => s.editingPrefabEntity);
+  const savePrefab = useEngineStore((s) => s.savePrefab);
+  const cancelPrefabEdit = useEngineStore((s) => s.cancelPrefabEdit);
+  const assets = useEngineStore((s) => s.assets);
+
+  // Get the prefab name for display
+  const editingPrefabName = editingPrefabId
+    ? assets.find(a => a.id === editingPrefabId)?.name ?? 'Prefab'
+    : null;
 
   // Width of right panel (px)
   const [rightWidth, setRightWidth] = useState(280);
@@ -106,7 +116,7 @@ export default function App() {
             style={{ height: `${topHeight}px` }}
           >
             <Panel
-              title="HIERARCHY"
+              title={editingPrefabId ? "PREFAB" : "HIERARCHY"}
               className="left"
               style={{ width: `${leftWidth}px` }}
             >
@@ -119,10 +129,17 @@ export default function App() {
             />
 
             <Panel
-              title="SCENE"
+              title={editingPrefabId ? `SCENE — Editing Prefab: ${editingPrefabName}` : "SCENE"}
               className="middle-top"
               style={{ flex: 1 }}
             >
+              {editingPrefabId && (
+                <div className="prefab-edit-bar">
+                  <span className="prefab-edit-bar-label">📦 Editing: {editingPrefabName}</span>
+                  <button className="prefab-edit-bar-btn save" onClick={savePrefab}>💾 Save</button>
+                  <button className="prefab-edit-bar-btn cancel" onClick={cancelPrefabEdit}>✕ Cancel</button>
+                </div>
+              )}
               <SceneView />
             </Panel>
           </div>

@@ -89,6 +89,8 @@ export class GameLoop {
             transform.position.y = y;
           }
           this.scene.addEntity(entity);
+          // Compile and start scripts on the newly spawned entity
+          this.scriptRunner.compileAndStartEntity(entity);
           return entity;
         },
         destroyEntity: (entity: Entity) => {

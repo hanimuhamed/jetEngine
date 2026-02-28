@@ -10,6 +10,8 @@ function AssetPanel() {
   const removeAsset = useEngineStore(s => s.removeAsset);
   const selectedEntityId = useEngineStore(s => s.selectedEntityId);
   const updateComponent = useEngineStore(s => s.updateComponent);
+  const startEditingPrefab = useEngineStore(s => s.startEditingPrefab);
+  const engineState = useEngineStore(s => s.engineState);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -48,14 +50,28 @@ function AssetPanel() {
   }, []);
 
   const handleAssetClick = useCallback((asset: typeof assets[number]) => {
-    if (asset.type === 'prefab') return; // prefabs are not assignable via click
+    if (asset.type === 'prefab') {
+      // Click prefab → enter prefab editing mode (only in EDITING state)
+      if (engineState === 'EDITING') {
+        startEditingPrefab(asset.id);
+      }
+      return;
+    }
     if (!selectedEntityId) return;
     updateComponent(selectedEntityId, 'SpriteRenderer', (comp) => {
       const sr = comp as SpriteRenderer;
       sr.shapeType = 'sprite';
       sr.loadImage(asset.url);
     });
-  }, [selectedEntityId, updateComponent]);
+  }, [selectedEntityId, updateComponent, engineState, startEditingPrefab]);
+
+  // Drag prefab from asset panel
+  const handlePrefabDragStart = useCallback((e: React.DragEvent, asset: typeof assets[number]) => {
+    if (asset.type !== 'prefab' || !asset.prefabJson) return;
+    e.dataTransfer.setData('application/jet-prefab-name', asset.name);
+    e.dataTransfer.setData('application/jet-prefab-json', asset.prefabJson);
+    e.dataTransfer.effectAllowed = 'copy';
+  }, []);
 
   const imageAssets = assets.filter(a => a.type === 'image');
   const prefabAssets = assets.filter(a => a.type === 'prefab');
@@ -81,7 +97,10 @@ function AssetPanel() {
                   <div
                     key={asset.id}
                     className="asset-item prefab-item"
-                    title={`Prefab: ${asset.name}\nUse assets.spawn("${asset.name}", x, y) in scripts`}
+                    title={`Prefab: ${asset.name}\nClick to edit • Drag to Hierarchy to spawn\nOr use assets.spawn("${asset.name}", x, y) in scripts`}
+                    onClick={() => handleAssetClick(asset)}
+                    draggable
+                    onDragStart={(e) => handlePrefabDragStart(e, asset)}
                   >
                     <div className="prefab-icon">📦</div>
                     <span className="asset-name">{asset.name}</span>

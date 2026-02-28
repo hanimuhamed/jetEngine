@@ -46,6 +46,8 @@ function Inspector() {
   const addComponentToEntity = useEngineStore(s => s.addComponentToEntity);
   const removeComponentFromEntity = useEngineStore(s => s.removeComponentFromEntity);
   const setEntityTag = useEngineStore(s => s.setEntityTag);
+  const editingPrefabId = useEngineStore(s => s.editingPrefabId);
+  const editingPrefabEntity = useEngineStore(s => s.editingPrefabEntity);
   const _tick = useEngineStore(s => s._tick);
   void _tick; // subscribe to tick for reactivity
 
@@ -53,6 +55,18 @@ function Inspector() {
 
   // Find entity in tree (including children)
   const findEntity = useCallback((id: string): ReturnType<typeof entities.find> => {
+    // If in prefab edit mode, search in the prefab entity tree
+    if (editingPrefabId && editingPrefabEntity) {
+      const searchPrefab = (e: typeof editingPrefabEntity): typeof editingPrefabEntity | undefined => {
+        if (e.id === id) return e;
+        for (const child of e.children) {
+          const found = searchPrefab(child);
+          if (found) return found;
+        }
+        return undefined;
+      };
+      return searchPrefab(editingPrefabEntity);
+    }
     const search = (list: typeof entities): typeof entities[number] | undefined => {
       for (const e of list) {
         if (e.id === id) return e;
@@ -62,7 +76,7 @@ function Inspector() {
       return undefined;
     };
     return search(entities);
-  }, [entities]);
+  }, [entities, editingPrefabId, editingPrefabEntity]);
 
   const entity = selectedEntityId ? findEntity(selectedEntityId) ?? null : null;
 
