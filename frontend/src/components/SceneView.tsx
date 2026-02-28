@@ -2,6 +2,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useEngineStore } from '../store/engineStore';
 import { Transform2D } from '../engine/components/Transform2D';
+import { Camera2DComponent } from '../engine/components/Camera2DComponent';
 import type { Entity } from '../engine/core/Entity';
 
 /** Recursively flatten entities (including children) */
@@ -98,6 +99,7 @@ function SceneView() {
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
 
       // Move the camera entity's transform (panning moves camera, which shifts the scene)
+      // Y-up: dragging up (negative dy) should increase camera Y
       const { cameraEntityId, entities } = useEngineStore.getState();
       const allEntities = flattenEntities(entities);
       const camEntity = allEntities.find(e => e.id === cameraEntityId);
@@ -105,7 +107,7 @@ function SceneView() {
         const t = camEntity.getComponent<Transform2D>('Transform2D');
         if (t) {
           t.position.x -= dx / renderer.camera.zoom;
-          t.position.y -= dy / renderer.camera.zoom;
+          t.position.y += dy / renderer.camera.zoom;
           useEngineStore.getState().syncEntities();
         }
       }
@@ -118,12 +120,21 @@ function SceneView() {
     }
   }, []);
 
-  // Zoom with scroll
+  // Zoom with scroll — updates Camera2DComponent zoom
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    renderer.camera.zoom = Math.max(0.1, Math.min(10, renderer.camera.zoom * zoomFactor));
-  }, [renderer]);
+    const { cameraEntityId, entities: ents } = useEngineStore.getState();
+    const allEnts = flattenEntities(ents);
+    const camEntity = allEnts.find(e2 => e2.id === cameraEntityId);
+    if (camEntity) {
+      const cam = camEntity.getComponent<Camera2DComponent>('Camera2DComponent');
+      if (cam) {
+        cam.zoom = Math.max(0.1, Math.min(10, cam.zoom * zoomFactor));
+        useEngineStore.getState().syncEntities();
+      }
+    }
+  }, []);
 
   return (
     <div className="scene-view" ref={containerRef}>

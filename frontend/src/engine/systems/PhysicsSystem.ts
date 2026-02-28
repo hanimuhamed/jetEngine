@@ -5,7 +5,7 @@ import { Transform2D } from '../components/Transform2D';
 import { RigidBody2D } from '../components/RigidBody2D';
 import { Collider2D } from '../components/Collider2D';
 
-const GRAVITY = new Vec2(0, 400); // pixels/s² downward
+const GRAVITY = new Vec2(0, -400); // pixels/s² downward (Y-up convention)
 
 interface AABB {
   minX: number;
@@ -50,8 +50,9 @@ export class PhysicsSystem {
       // Apply acceleration
       rb.velocity = rb.velocity.add(rb.acceleration.scale(dt));
 
-      // Apply drag
-      rb.velocity = rb.velocity.scale(1 - rb.drag);
+      // Apply drag (frame-rate independent: use exponential damping)
+      const dragFactor = Math.pow(1 - rb.drag, dt * 60);
+      rb.velocity = rb.velocity.scale(dragFactor);
 
       // Update position
       transform.position = transform.position.add(rb.velocity.scale(dt));

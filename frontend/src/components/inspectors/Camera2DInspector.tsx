@@ -2,6 +2,7 @@
 import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { Camera2DComponent } from '../../engine/components/Camera2DComponent';
+import DraggableNumber from '../../io/draggableNumber';
 
 export function Camera2DInspector({ entityId }: { entityId: string }) {
   const updateComponent = useEngineStore(s => s.updateComponent);
@@ -32,6 +33,13 @@ export function Camera2DInspector({ entityId }: { entityId: string }) {
 
   return (
     <div className="inspector-fields">
+      <div className="field-group">
+        <label className="field-group-label">Zoom</label>
+        <div className="field-row">
+          <DraggableNumber label="Zoom" value={cam.zoom} onChange={(v) => update(c => { c.zoom = Math.max(0.1, Math.min(10, v)); })} />
+        </div>
+      </div>
+
       <div className="field-group">
         <label className="field-group-label">Background Color</label>
         <div className="field-row">

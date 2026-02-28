@@ -27,34 +27,38 @@ export class Renderer2D {
     return this._canvas;
   }
 
-  /** Sync renderer camera position/zoom from the Camera entity's Transform2D */
+  /** Sync renderer camera position/zoom from the Camera entity's Transform2D and Camera2DComponent */
   syncCameraFromEntity(): void {
     if (!this.cameraEntity) return;
     const t = this.cameraEntity.getComponent<Transform2D>('Transform2D');
     if (t) {
       this.camera.position = t.position.clone();
     }
+    const cam = this.cameraEntity.getComponent<Camera2DComponent>('Camera2DComponent');
+    if (cam) {
+      this.camera.zoom = cam.zoom;
+    }
   }
 
-  /** Convert world position to screen position */
+  /** Convert world position to screen position (Y-up: +Y moves objects up on screen) */
   worldToScreen(worldPos: Vec2): Vec2 {
     if (!this._canvas) return worldPos;
     const cx = this._canvas.width / 2;
     const cy = this._canvas.height / 2;
     return new Vec2(
       (worldPos.x - this.camera.position.x) * this.camera.zoom + cx,
-      (worldPos.y - this.camera.position.y) * this.camera.zoom + cy
+      -(worldPos.y - this.camera.position.y) * this.camera.zoom + cy
     );
   }
 
-  /** Convert screen position to world position */
+  /** Convert screen position to world position (Y-up) */
   screenToWorld(screenPos: Vec2): Vec2 {
     if (!this._canvas) return screenPos;
     const cx = this._canvas.width / 2;
     const cy = this._canvas.height / 2;
     return new Vec2(
       (screenPos.x - cx) / this.camera.zoom + this.camera.position.x,
-      (screenPos.y - cy) / this.camera.zoom + this.camera.position.y
+      -(screenPos.y - cy) / this.camera.zoom + this.camera.position.y
     );
   }
 
@@ -89,7 +93,7 @@ export class Renderer2D {
     const gridSize = 50 * this.camera.zoom;
 
     const offsetX = (-this.camera.position.x * this.camera.zoom + w / 2) % gridSize;
-    const offsetY = (-this.camera.position.y * this.camera.zoom + h / 2) % gridSize;
+    const offsetY = (this.camera.position.y * this.camera.zoom + h / 2) % gridSize;
 
     ctx.strokeStyle = '#ffffff10';
     ctx.lineWidth = 1;

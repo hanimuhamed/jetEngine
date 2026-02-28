@@ -87,16 +87,13 @@ export class ScriptRunner {
     try {
       const transform = entity.getComponent<Transform2D>('Transform2D');
 
-      // Check if this is a camera entity (camera is allowed negative positions)
-      const isCamera = entity.hasComponent('Camera2DComponent');
-
       // Build the transform proxy that reads/writes to the actual component
       const transformProxy = transform
         ? {
             get x() { return transform.position.x; },
-            set x(v: number) { transform.position.x = isCamera ? v : Math.max(0, v); },
+            set x(v: number) { transform.position.x = v; },
             get y() { return transform.position.y; },
-            set y(v: number) { transform.position.y = isCamera ? v : Math.max(0, v); },
+            set y(v: number) { transform.position.y = v; },
             get rotation() { return transform.rotation; },
             set rotation(v: number) { transform.rotation = v; },
             get scaleX() { return transform.scale.x; },
