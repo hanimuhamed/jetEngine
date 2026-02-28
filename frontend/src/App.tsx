@@ -2,23 +2,25 @@ import React, { useRef, useState } from "react";
 import "./index.css";
 import Panel from "./components/Panel";
 import Hierarchy from "./components/Hierarchy";
-import Inspector, { InspectorComponent } from "./components/Inspector";
-import type { TreeNode } from "./types";
-
-// TODO first complete engine, then come back to complete the editor.
+import Inspector from "./components/Inspector";
+import Toolbar from "./components/Toolbar";
+import SceneView from "./components/SceneView";
+import ScriptEditor from "./components/ScriptEditor";
+import AssetPanel from "./components/AssetPanel";
+import { useEngineStore } from "./store/engineStore";
 
 export default function App() {
   const rootRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const topRowRef = useRef<HTMLDivElement>(null);
 
-  // Width of right panel (percentage of root)
-  const [rightWidth, setRightWidth] = useState(250);
+  const editingScriptEntityId = useEngineStore((s) => s.editingScriptEntityId);
 
-  // Width of left panel (percentage of top row)
-  const [leftWidth, setLeftWidth] = useState(250);
-
-  // Height of top row (percentage of column)
+  // Width of right panel (px)
+  const [rightWidth, setRightWidth] = useState(280);
+  // Width of left panel (px)
+  const [leftWidth, setLeftWidth] = useState(220);
+  // Height of top row (px)
   const [topHeight, setTopHeight] = useState(600);
 
   const startResize = (
@@ -34,7 +36,7 @@ export default function App() {
     const startLeft = leftWidth;
     const startTopHeight = topHeight;
 
-    const columnHeight = columnRef.current!.clientHeight;
+    const columnHeight = columnRef.current?.clientHeight ?? 800;
 
     const onMouseMove = (ev: MouseEvent) => {
       if (direction === "right") {
@@ -73,17 +75,18 @@ export default function App() {
 
   return (
     <div className="app-root">
-      <div className="top-bar">✈ jetEngine</div>
+      <div className="top-bar">
+        <span className="top-bar-title">✈ jetEngine</span>
+        <Toolbar />
+      </div>
 
       <div className="container" ref={rootRef}>
-        
         {/* LEFT + SCENE + ASSETS COLUMN */}
         <div
           className="left-middle-column"
           ref={columnRef}
           style={{ flex: 1 }}
         >
-          
           {/* TOP ROW (HIERARCHY + SCENE) */}
           <div
             className="top-row"
@@ -95,7 +98,7 @@ export default function App() {
               className="left"
               style={{ width: `${leftWidth}px` }}
             >
-              <Hierarchy data={sampleTree} />
+              <Hierarchy />
             </Panel>
 
             <div
@@ -107,7 +110,9 @@ export default function App() {
               title="SCENE"
               className="middle-top"
               style={{ flex: 1 }}
-            />
+            >
+              <SceneView />
+            </Panel>
           </div>
 
           {/* HORIZONTAL DIVIDER */}
@@ -116,11 +121,13 @@ export default function App() {
             onMouseDown={(e) => startResize("horizontal", e)}
           />
 
-          {/* BOTTOM (ASSETS) */}
+          {/* BOTTOM (ASSETS or SCRIPT EDITOR) */}
           <Panel
-            title="ASSETS"
+            title={editingScriptEntityId ? "SCRIPT EDITOR" : "ASSETS"}
             className="middle-bottom"
-          />
+          >
+            {editingScriptEntityId ? <ScriptEditor /> : <AssetPanel />}
+          </Panel>
         </div>
 
         {/* VERTICAL DIVIDER FOR INSPECTOR */}
@@ -135,69 +142,14 @@ export default function App() {
           className="right"
           style={{ width: `${rightWidth}px` }}
         >
-          <Inspector components={components.map((comp) => (
-            <InspectorComponent
-              key={comp.name}
-              name={comp.name}
-              attributes={comp.attributes}
-            />
-          ))} />
+          <Inspector />
         </Panel>
       </div>
+
       <div className="footer">
-        • Big Footer
+        ✈ jetEngine v0.1.0 — 2D Game Engine
       </div>
     </div>
   );
 }
-
-
-const sampleTree: TreeNode[] = [
-  {
-    id: "1",
-    name: "src",
-    type: "folder",
-    children: [
-      {
-        id: "1",
-        name: "components",
-        type: "folder",
-        children: [
-          { id: "3", name: "Panel.tsx", type: "file" },
-          { id: "4", name: "Hierarchy.tsx", type: "file" },
-        ],
-      },
-      { id: "5", name: "App.tsx", type: "file" },
-      { id: "6", name: "index.css", type: "file" },
-    ],
-  },
-  {
-    id: "7",
-    name: "package.json",
-    type: "file",
-  },
-];
-
-const transform: Record<string, any> = {
-  position: { x: 0, y: 0, z: 0 },
-  rotation: { x: 0, y: 0, z: 0 },
-  scale: { x: 1, y: 1, z: 1 },
-};
-
-const rigidbody = {
-  mass: 1,
-  isKinematic: false,
-  useGravity: true,
-};
-
-const components = [
-  {
-    name: "Transform",
-    attributes: transform,
-  },
-  {
-    name: "Rigidbody",
-    attributes: rigidbody,
-  },
-];
 

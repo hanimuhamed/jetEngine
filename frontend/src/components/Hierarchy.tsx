@@ -1,52 +1,117 @@
-import { useState } from "react";
-import type { TreeNode, HierarchyProps} from "../types";
+import { useState, useCallback } from "react";
+import { useEngineStore } from "../store/engineStore";
 
-function Hierarchy({ data }: HierarchyProps) {
+function Hierarchy() {
+  const entities = useEngineStore((s) => s.entities);
+  const selectedEntityId = useEngineStore((s) => s.selectedEntityId);
+  const selectEntity = useEngineStore((s) => s.selectEntity);
+  const addEntity = useEngineStore((s) => s.addEntity);
+  const removeEntity = useEngineStore((s) => s.removeEntity);
+  const renameEntity = useEngineStore((s) => s.renameEntity);
+
   return (
     <div className="hierarchy">
-      {data.map((node) => (
-        <TreeItem key={node.id} node={node} depth={0} />
-      ))}
+      <div className="hierarchy-actions">
+        <button
+          className="hierarchy-btn"
+          onClick={() => addEntity()}
+          title="Add Entity"
+        >
+          +
+        </button>
+        <button
+          className="hierarchy-btn hierarchy-btn-del"
+          onClick={() => {
+            if (selectedEntityId) removeEntity(selectedEntityId);
+          }}
+          disabled={!selectedEntityId}
+          title="Delete Entity"
+        >
+          🗑
+        </button>
+      </div>
+      <div className="hierarchy-list">
+        {entities.length === 0 && (
+          <div className="hierarchy-empty">No entities in scene</div>
+        )}
+        {entities.map((entity) => (
+          <HierarchyItem
+            key={entity.id}
+            id={entity.id}
+            name={entity.name}
+            selected={entity.id === selectedEntityId}
+            onSelect={selectEntity}
+            onRename={renameEntity}
+          />
+        ))}
+      </div>
     </div>
   );
 }
 
-type TreeItemProps = {
-  node: TreeNode;
-  depth: number;
-};
+function HierarchyItem({
+  id,
+  name,
+  selected,
+  onSelect,
+  onRename,
+}: {
+  id: string;
+  name: string;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(name);
 
-function TreeItem({ node, depth }: TreeItemProps) {
-  const [expanded, setExpanded] = useState(false);
+  const handleDoubleClick = useCallback(() => {
+    setEditing(true);
+    setEditValue(name);
+  }, [name]);
 
-  const isFolder = node.type === "folder";
+  const handleBlur = useCallback(() => {
+    setEditing(false);
+    if (editValue.trim() && editValue !== name) {
+      onRename(id, editValue.trim());
+    }
+  }, [editValue, name, id, onRename]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        (e.target as HTMLInputElement).blur();
+      } else if (e.key === "Escape") {
+        setEditing(false);
+        setEditValue(name);
+      }
+    },
+    [name]
+  );
 
   return (
-    <div>
-      <div
-        className="tree-item"
-        style={{ paddingLeft: `${depth * 16}px` }}
-        onClick={() => isFolder && setExpanded(!expanded)}
-      >
-        {isFolder ? (
-          <span className="tree-arrow">{expanded ? "▾" : "▸"}</span>
-        ) : (
-          <span className="tree-arrow-placeholder" />
-        )}
-
-        <span className={`tree-label ${node.type}`}>
-          {isFolder ? (expanded ? "📂" : "📁") : "📄"} {node.name}
-        </span>
-      </div>
-
-      {isFolder &&
-        expanded &&
-        node.children?.map((child) => (
-          <TreeItem key={child.id} node={child} depth={depth + 1} />
-        ))}
+    <div
+      className={`tree-item ${selected ? "tree-item-selected" : ""}`}
+      onClick={() => onSelect(id)}
+      onDoubleClick={handleDoubleClick}
+    >
+      <span className="tree-arrow-placeholder" />
+      <span className="entity-icon">◆</span>
+      {editing ? (
+        <input
+          className="tree-rename-input"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className="tree-label file">{name}</span>
+      )}
     </div>
   );
 }
 
 export default Hierarchy;
-export type { TreeNode };

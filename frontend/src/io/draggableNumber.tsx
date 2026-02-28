@@ -1,42 +1,53 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import type { DraggableNumberProps } from "../types";
 
-function DraggableNumber({ value, onChange }: DraggableNumberProps) {
+function DraggableNumber({ value, onChange, label }: DraggableNumberProps) {
   const [dragging, setDragging] = useState(false);
   const startYRef = useRef(0);
   const startValueRef = useRef(0);
+  const sensitivity = 0.5;
 
-  const sensitivity = 0.02; // tweak this for speed
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      const deltaY = startYRef.current - e.clientY;
+      const newValue = startValueRef.current + deltaY * sensitivity;
+      onChange(parseFloat(newValue.toFixed(2)));
+    },
+    [onChange]
+  );
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setDragging(true);
-    startYRef.current = e.clientY;
-    startValueRef.current = value;
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    const deltaY = startYRef.current - e.clientY;
-    const newValue = startValueRef.current + deltaY * sensitivity;
-    onChange(parseFloat(newValue.toFixed(2)));
-  };
-
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setDragging(false);
     window.removeEventListener("mousemove", handleMouseMove);
     window.removeEventListener("mouseup", handleMouseUp);
-  };
+  }, [handleMouseMove]);
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      setDragging(true);
+      startYRef.current = e.clientY;
+      startValueRef.current = value;
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [value, handleMouseMove, handleMouseUp]
+  );
 
   return (
-    <input
-      type="number"
-      value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      onMouseDown={handleMouseDown}
-      className={dragging ? "dragging" : ""}
-    />
+    <div className="draggable-number">
+      {label && <span className="draggable-label">{label}</span>}
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v)) onChange(v);
+        }}
+        onMouseDown={handleMouseDown}
+        className={dragging ? "dragging" : ""}
+        step="0.1"
+      />
+    </div>
   );
 }
 

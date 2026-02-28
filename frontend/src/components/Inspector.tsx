@@ -1,76 +1,123 @@
-import DraggableNumber from "../io/draggableNumber";
+import { useState, useCallback } from 'react';
+import { useEngineStore } from '../store/engineStore';
+import { Transform2DInspector } from './inspectors/Transform2DInspector';
+import { SpriteRendererInspector } from './inspectors/SpriteRendererInspector';
+import { RigidBody2DInspector } from './inspectors/RigidBody2DInspector';
+import { Collider2DInspector } from './inspectors/Collider2DInspector';
+import { ScriptComponentInspector } from './inspectors/ScriptComponentInspector';
+import type { Component } from '../engine/core/Component';
 
-function Inspector({ components }: { components: React.ReactNode[] }) {
-  const selectedGameObject = "Selected GameObject"; // TODO: get this from state
-  return (
-    <div className="inspector">
-      <h2>{selectedGameObject}</h2>
-      {components}
-    </div>
-  )
+const AVAILABLE_COMPONENTS = [
+  'Transform2D',
+  'SpriteRenderer',
+  'RigidBody2D',
+  'Collider2D',
+  'ScriptComponent',
+];
+
+function getInspectorForComponent(
+  comp: Component,
+  entityId: string
+): React.ReactNode {
+  switch (comp.type) {
+    case 'Transform2D':
+      return <Transform2DInspector key={comp.id} entityId={entityId} />;
+    case 'SpriteRenderer':
+      return <SpriteRendererInspector key={comp.id} entityId={entityId} />;
+    case 'RigidBody2D':
+      return <RigidBody2DInspector key={comp.id} entityId={entityId} />;
+    case 'Collider2D':
+      return <Collider2DInspector key={comp.id} entityId={entityId} />;
+    case 'ScriptComponent':
+      return <ScriptComponentInspector key={comp.id} entityId={entityId} />;
+    default:
+      return null;
+  }
 }
 
-// TODO: fix InspectorComponent //
+function Inspector() {
+  const selectedEntityId = useEngineStore(s => s.selectedEntityId);
+  const entities = useEngineStore(s => s.entities);
+  const addComponentToEntity = useEngineStore(s => s.addComponentToEntity);
+  const removeComponentFromEntity = useEngineStore(s => s.removeComponentFromEntity);
+  const _tick = useEngineStore(s => s._tick);
+  void _tick; // subscribe to tick for reactivity
 
-function InspectorComponent({name, attributes }: { name: string, attributes: Record<string, any>}) {
-  const renderField = (key: string, value: any) => {
-    function onChange(key: string, value: any) {
-      attributes[key] = value;
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
+  const entity = selectedEntityId
+    ? entities.find(e => e.id === selectedEntityId) ?? null
+    : null;
+
+  const handleAddComponent = useCallback((type: string) => {
+    if (selectedEntityId) {
+      addComponentToEntity(selectedEntityId, type);
     }
-    if (typeof value === "number") {
-      return (
-        <DraggableNumber
-          value={value}
-          onChange={(val) => onChange(key, val)}
-        />
-      );
-    } else if (typeof value === "boolean") {
-      return (
-        <input
-          type="checkbox"
-          checked={value}
-          onChange={(e) => onChange(key, e.target.checked)}
-        />
-      );
-    } else if (typeof value === "string") {
-      return (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(key, e.target.value)}
-        />
-      );
-    } else if (typeof value === "object" && "x" in value && "y" in value && "z" in value) {
-      return (
-        <div className="vector3-field">
-          <DraggableNumber
-            value={value.x}
-            onChange={(val) => onChange(key, { ...value, x: val })}
-          />
-          <DraggableNumber
-            value={value.y}
-            onChange={(val) => onChange(key, { ...value, y: val })}
-          />
-          <DraggableNumber
-            value={value.z}
-            onChange={(val) => onChange(key, { ...value, z: val })}
-          />
-        </div>
-      );
-    }
-  };
+    setShowAddMenu(false);
+  }, [selectedEntityId, addComponentToEntity]);
+
+  if (!entity) {
+    return (
+      <div className="inspector">
+        <div className="inspector-empty">No entity selected</div>
+      </div>
+    );
+  }
+
+  const components = entity.getComponentsList();
+  const existingTypes = new Set(components.map(c => c.type));
+  const addableTypes = AVAILABLE_COMPONENTS.filter(t => !existingTypes.has(t));
+
   return (
-    <div className="inspector-component">
-      <h3>{name}</h3>
-      {Object.entries(attributes).map(([key, value]) => (
-        <div key={key} className="field">
-          <label>{key}</label>
-          {renderField(key, value)}
+    <div className="inspector">
+      <div className="inspector-entity-name">{entity.name}</div>
+      {components.map(comp => (
+        <div key={comp.id} className="inspector-component">
+          <div className="inspector-component-header">
+            <span className="inspector-component-title">{comp.type}</span>
+            {comp.type !== 'Transform2D' && (
+              <button
+                className="inspector-remove-btn"
+                onClick={() => removeComponentFromEntity(entity.id, comp.type)}
+                title="Remove Component"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="inspector-component-body">
+            {getInspectorForComponent(comp, entity.id)}
+          </div>
         </div>
       ))}
+
+      <div className="inspector-add-component">
+        <button
+          className="inspector-add-btn"
+          onClick={() => setShowAddMenu(!showAddMenu)}
+        >
+          + Add Component
+        </button>
+        {showAddMenu && (
+          <div className="inspector-add-menu">
+            {addableTypes.length === 0 ? (
+              <div className="inspector-add-menu-item disabled">All added</div>
+            ) : (
+              addableTypes.map(type => (
+                <div
+                  key={type}
+                  className="inspector-add-menu-item"
+                  onClick={() => handleAddComponent(type)}
+                >
+                  {type}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 export default Inspector;
-export { InspectorComponent };
