@@ -5,6 +5,7 @@ import { SpriteRendererInspector } from './inspectors/SpriteRendererInspector';
 import { RigidBody2DInspector } from './inspectors/RigidBody2DInspector';
 import { Collider2DInspector } from './inspectors/Collider2DInspector';
 import { ScriptComponentInspector } from './inspectors/ScriptComponentInspector';
+import { Camera2DInspector } from './inspectors/Camera2DInspector';
 import type { Component } from '../engine/core/Component';
 
 const AVAILABLE_COMPONENTS = [
@@ -13,6 +14,7 @@ const AVAILABLE_COMPONENTS = [
   'RigidBody2D',
   'Collider2D',
   'ScriptComponent',
+  'Camera2DComponent',
 ];
 
 function getInspectorForComponent(
@@ -29,7 +31,9 @@ function getInspectorForComponent(
     case 'Collider2D':
       return <Collider2DInspector key={comp.id} entityId={entityId} />;
     case 'ScriptComponent':
-      return <ScriptComponentInspector key={comp.id} entityId={entityId} />;
+      return <ScriptComponentInspector key={comp.id} entityId={entityId} componentId={comp.id} />;
+    case 'Camera2DComponent':
+      return <Camera2DInspector key={comp.id} entityId={entityId} />;
     default:
       return null;
   }
@@ -38,6 +42,7 @@ function getInspectorForComponent(
 function Inspector() {
   const selectedEntityId = useEngineStore(s => s.selectedEntityId);
   const entities = useEngineStore(s => s.entities);
+  const cameraEntityId = useEngineStore(s => s.cameraEntityId);
   const addComponentToEntity = useEngineStore(s => s.addComponentToEntity);
   const removeComponentFromEntity = useEngineStore(s => s.removeComponentFromEntity);
   const _tick = useEngineStore(s => s._tick);
@@ -45,9 +50,20 @@ function Inspector() {
 
   const [showAddMenu, setShowAddMenu] = useState(false);
 
-  const entity = selectedEntityId
-    ? entities.find(e => e.id === selectedEntityId) ?? null
-    : null;
+  // Find entity in tree (including children)
+  const findEntity = useCallback((id: string): ReturnType<typeof entities.find> => {
+    const search = (list: typeof entities): typeof entities[number] | undefined => {
+      for (const e of list) {
+        if (e.id === id) return e;
+        const found = search(e.children);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    return search(entities);
+  }, [entities]);
+
+  const entity = selectedEntityId ? findEntity(selectedEntityId) ?? null : null;
 
   const handleAddComponent = useCallback((type: string) => {
     if (selectedEntityId) {
@@ -64,21 +80,32 @@ function Inspector() {
     );
   }
 
+  const isCamera = entity.id === cameraEntityId;
   const components = entity.getComponentsList();
+
+  // For ScriptComponent, allow adding more. For others, prevent duplicates.
   const existingTypes = new Set(components.map(c => c.type));
-  const addableTypes = AVAILABLE_COMPONENTS.filter(t => !existingTypes.has(t));
+  const addableTypes = AVAILABLE_COMPONENTS.filter(t => {
+    if (t === 'ScriptComponent') return true; // always allow adding more scripts
+    return !existingTypes.has(t);
+  });
 
   return (
     <div className="inspector">
-      <div className="inspector-entity-name">{entity.name}</div>
+      <div className="inspector-entity-name">
+        {isCamera && <span className="camera-badge">📷 </span>}
+        {entity.name}
+      </div>
       {components.map(comp => (
         <div key={comp.id} className="inspector-component">
           <div className="inspector-component-header">
             <span className="inspector-component-title">{comp.type}</span>
-            {comp.type !== 'Transform2D' && (
+            {/* Don't allow removing Transform2D or Camera2DComponent from camera */}
+            {!(comp.type === 'Transform2D') &&
+              !(isCamera && comp.type === 'Camera2DComponent') && (
               <button
                 className="inspector-remove-btn"
-                onClick={() => removeComponentFromEntity(entity.id, comp.type)}
+                onClick={() => removeComponentFromEntity(entity.id, comp.id)}
                 title="Remove Component"
               >
                 ✕

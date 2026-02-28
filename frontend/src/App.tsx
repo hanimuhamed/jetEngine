@@ -7,6 +7,7 @@ import Toolbar from "./components/Toolbar";
 import SceneView from "./components/SceneView";
 import ScriptEditor from "./components/ScriptEditor";
 import AssetPanel from "./components/AssetPanel";
+import ConsolePanel from "./components/ConsolePanel";
 import { useEngineStore } from "./store/engineStore";
 
 export default function App() {
@@ -22,9 +23,11 @@ export default function App() {
   const [leftWidth, setLeftWidth] = useState(220);
   // Height of top row (px)
   const [topHeight, setTopHeight] = useState(600);
+  // Width of bottom-right console panel (px)
+  const [bottomRightWidth, setBottomRightWidth] = useState(340);
 
   const startResize = (
-    direction: "right" | "left" | "horizontal",
+    direction: "right" | "left" | "horizontal" | "bottomVertical",
     e: React.MouseEvent
   ) => {
     e.preventDefault();
@@ -35,6 +38,7 @@ export default function App() {
     const startRight = rightWidth;
     const startLeft = leftWidth;
     const startTopHeight = topHeight;
+    const startBottomRightWidth = bottomRightWidth;
 
     const columnHeight = columnRef.current?.clientHeight ?? 800;
 
@@ -60,6 +64,14 @@ export default function App() {
         const newTop = startTopHeight + dy;
         if (newTop > 150 && newTop < columnHeight - 150) {
           setTopHeight(newTop);
+        }
+      }
+
+      if (direction === "bottomVertical") {
+        const dx = ev.clientX - startX;
+        const newWidth = startBottomRightWidth - dx;
+        if (newWidth > 200 && newWidth < 700) {
+          setBottomRightWidth(newWidth);
         }
       }
     };
@@ -121,13 +133,28 @@ export default function App() {
             onMouseDown={(e) => startResize("horizontal", e)}
           />
 
-          {/* BOTTOM (ASSETS or SCRIPT EDITOR) */}
-          <Panel
-            title={editingScriptEntityId ? "SCRIPT EDITOR" : "ASSETS"}
-            className="middle-bottom"
-          >
-            {editingScriptEntityId ? <ScriptEditor /> : <AssetPanel />}
-          </Panel>
+          {/* BOTTOM (ASSETS/SCRIPT EDITOR + CONSOLE) */}
+          <div className="bottom-row">
+            <Panel
+              title={editingScriptEntityId ? "SCRIPT EDITOR" : "ASSETS"}
+              className="middle-bottom"
+            >
+              {editingScriptEntityId ? <ScriptEditor /> : <AssetPanel />}
+            </Panel>
+
+            <div
+              className="divider vertical"
+              onMouseDown={(e) => startResize("bottomVertical", e)}
+            />
+
+            <Panel
+              title="CONSOLE"
+              className="bottom-right"
+              style={{ width: `${bottomRightWidth}px` }}
+            >
+              <ConsolePanel />
+            </Panel>
+          </div>
         </div>
 
         {/* VERTICAL DIVIDER FOR INSPECTOR */}

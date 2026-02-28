@@ -21,7 +21,59 @@ interface CompiledScript {
   onDestroy?: () => void;
 }
 
+// Console log entry
+export interface ConsoleEntry {
+  level: 'log' | 'warn' | 'error' | 'info';
+  message: string;
+  timestamp: number;
+}
+
+// Global console log store — listeners can subscribe
+type ConsoleListener = (entry: ConsoleEntry) => void;
+const consoleListeners: ConsoleListener[] = [];
+
+export function addConsoleListener(listener: ConsoleListener): () => void {
+  consoleListeners.push(listener);
+  return () => {
+    const idx = consoleListeners.indexOf(listener);
+    if (idx !== -1) consoleListeners.splice(idx, 1);
+  };
+}
+
+function emitConsoleEntry(entry: ConsoleEntry): void {
+  for (const listener of consoleListeners) {
+    listener(entry);
+  }
+}
+
+function createSandboxConsole(): typeof console {
+  const makeLogger = (level: ConsoleEntry['level']) => {
+    return (...args: unknown[]) => {
+      const message = args.map(a => {
+        if (typeof a === 'object') {
+          try { return JSON.stringify(a); }
+          catch { return String(a); }
+        }
+        return String(a);
+      }).join(' ');
+      emitConsoleEntry({ level, message, timestamp: Date.now() });
+      // Also forward to real console
+      const realMethod = level === 'log' ? console.log : level === 'warn' ? console.warn : level === 'error' ? console.error : console.info;
+      realMethod(`[Script] ${message}`);
+    };
+  };
+
+  return {
+    ...console,
+    log: makeLogger('log'),
+    warn: makeLogger('warn'),
+    error: makeLogger('error'),
+    info: makeLogger('info'),
+  };
+}
+
 export class ScriptRunner {
+  // Key: `${entity.id}::${script.id}` to support multiple scripts per entity
   private compiledScripts: Map<string, CompiledScript> = new Map();
   private started: Set<string> = new Set();
 
@@ -77,7 +129,10 @@ export class ScriptRunner {
         getAllEntities: () => sceneProxy.getAllEntities(),
       };
 
+      const sandboxConsole = createSandboxConsole();
+
       // Use Function constructor for sandboxing (not eval)
+      // Wrap script in an IIFE that captures function declarations properly
       const fn = new Function(
         'entity',
         'transform',
@@ -86,9 +141,15 @@ export class ScriptRunner {
         'scene',
         'console',
         `
-        let onStart, onUpdate, onDestroy;
-        ${script.scriptSource}
-        return { onStart, onUpdate, onDestroy };
+        var __onStart, __onUpdate, __onDestroy;
+        (function() {
+          ${script.scriptSource}
+
+          if (typeof onStart === 'function') __onStart = onStart;
+          if (typeof onUpdate === 'function') __onUpdate = onUpdate;
+          if (typeof onDestroy === 'function') __onDestroy = onDestroy;
+        })();
+        return { onStart: __onStart, onUpdate: __onUpdate, onDestroy: __onDestroy };
         `
       );
 
@@ -98,12 +159,13 @@ export class ScriptRunner {
         inputProxy,
         timeProxy,
         sceneProxyObj,
-        console
+        sandboxConsole
       );
 
       return result as CompiledScript;
     } catch (err) {
-      console.error(`[ScriptRunner] Failed to compile script "${script.scriptName}" on entity "${entity.name}":`, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      emitConsoleEntry({ level: 'error', message: `[Compile] "${script.scriptName}" on "${entity.name}": ${msg}`, timestamp: Date.now() });
       return null;
     }
   }
@@ -118,29 +180,33 @@ export class ScriptRunner {
     this.started.clear();
 
     for (const entity of entities) {
-      const script = entity.getComponent<ScriptComponent>('ScriptComponent');
-      if (!script) continue;
-
-      const compiled = this.compileScript(entity, script, input, time, sceneProxy);
-      if (compiled) {
-        this.compiledScripts.set(entity.id, compiled);
-        try {
-          compiled.onStart?.();
-        } catch (err) {
-          console.error(`[ScriptRunner] onStart error on "${entity.name}":`, err);
+      // Support multiple scripts via getScriptComponents
+      const scripts = entity.getComponentsList().filter(c => c.type === 'ScriptComponent') as ScriptComponent[];
+      for (const script of scripts) {
+        const key = `${entity.id}::${script.id}`;
+        const compiled = this.compileScript(entity, script, input, time, sceneProxy);
+        if (compiled) {
+          this.compiledScripts.set(key, compiled);
+          try {
+            compiled.onStart?.();
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            emitConsoleEntry({ level: 'error', message: `[onStart] "${entity.name}": ${msg}`, timestamp: Date.now() });
+          }
+          this.started.add(key);
         }
-        this.started.add(entity.id);
       }
     }
   }
 
   updateAll(deltaTime: number): void {
-    for (const [entityId, compiled] of this.compiledScripts) {
-      if (!this.started.has(entityId)) continue;
+    for (const [key, compiled] of this.compiledScripts) {
+      if (!this.started.has(key)) continue;
       try {
         compiled.onUpdate?.(deltaTime);
       } catch (err) {
-        console.error(`[ScriptRunner] onUpdate error on entity ${entityId}:`, err);
+        const msg = err instanceof Error ? err.message : String(err);
+        emitConsoleEntry({ level: 'error', message: `[onUpdate] ${key}: ${msg}`, timestamp: Date.now() });
       }
     }
   }
@@ -150,7 +216,8 @@ export class ScriptRunner {
       try {
         compiled.onDestroy?.();
       } catch (err) {
-        console.error('[ScriptRunner] onDestroy error:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        emitConsoleEntry({ level: 'error', message: `[onDestroy]: ${msg}`, timestamp: Date.now() });
       }
     }
     this.compiledScripts.clear();

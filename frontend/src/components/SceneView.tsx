@@ -2,6 +2,19 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useEngineStore } from '../store/engineStore';
 import { Vec2 } from '../engine/core/Math2D';
+import type { Entity } from '../engine/core/Entity';
+
+/** Recursively flatten entities (including children) */
+function flattenEntities(entities: Entity[]): Entity[] {
+  const result: Entity[] = [];
+  for (const entity of entities) {
+    result.push(entity);
+    if (entity.children.length > 0) {
+      result.push(...flattenEntities(entity.children));
+    }
+  }
+  return result;
+}
 
 function SceneView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,9 +41,10 @@ function SceneView() {
 
     const renderEditorFrame = () => {
       const { entities, selectedEntityId, renderer: r } = useEngineStore.getState();
+      const allEntities = flattenEntities(entities);
       r.clear();
       r.drawGrid();
-      r.renderEntities(entities, selectedEntityId);
+      r.renderEntities(allEntities, selectedEntityId);
       editorRafRef.current = requestAnimationFrame(renderEditorFrame);
     };
 
@@ -54,7 +68,8 @@ function SceneView() {
     const y = e.clientY - rect.top;
 
     const { entities } = useEngineStore.getState();
-    const hit = renderer.hitTest(entities, x, y);
+    const allEntities = flattenEntities(entities);
+    const hit = renderer.hitTest(allEntities, x, y);
     selectEntity(hit?.id ?? null);
   }, [renderer, selectEntity]);
 

@@ -6,6 +6,7 @@ export class Entity {
   public readonly id: string;
   public name: string;
   public active: boolean;
+  // Components stored by their unique id to support multiple of the same type
   public components: Map<string, Component>;
   public children: Entity[];
   public parent: Entity | null;
@@ -20,19 +21,59 @@ export class Entity {
   }
 
   addComponent(component: Component): void {
-    this.components.set(component.type, component);
+    this.components.set(component.id, component);
   }
 
-  removeComponent(type: string): void {
-    this.components.delete(type);
+  /**
+   * Remove a component. If componentId matches a component id, remove that specific one.
+   * If it matches a type string, remove the first component of that type.
+   */
+  removeComponent(idOrType: string): void {
+    // Try by id first
+    if (this.components.has(idOrType)) {
+      this.components.delete(idOrType);
+      return;
+    }
+    // Otherwise remove first of that type
+    for (const [cid, comp] of this.components) {
+      if (comp.type === idOrType) {
+        this.components.delete(cid);
+        return;
+      }
+    }
+  }
+
+  /** Remove a specific component by its unique id */
+  removeComponentById(componentId: string): void {
+    this.components.delete(componentId);
   }
 
   getComponent<T extends Component>(type: string): T | null {
-    return (this.components.get(type) as T) ?? null;
+    for (const comp of this.components.values()) {
+      if (comp.type === type) return comp as T;
+    }
+    return null;
+  }
+
+  /** Get a specific component by its unique component id */
+  getComponentById<T extends Component>(componentId: string): T | null {
+    return (this.components.get(componentId) as T) ?? null;
   }
 
   hasComponent(type: string): boolean {
-    return this.components.has(type);
+    for (const comp of this.components.values()) {
+      if (comp.type === type) return true;
+    }
+    return false;
+  }
+
+  /** Count how many components of this type exist */
+  countComponents(type: string): number {
+    let n = 0;
+    for (const comp of this.components.values()) {
+      if (comp.type === type) n++;
+    }
+    return n;
   }
 
   getComponentsList(): Component[] {

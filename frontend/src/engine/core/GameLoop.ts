@@ -9,6 +9,18 @@ import { Scene } from '../scene/Scene';
 
 export type EngineState = 'EDITING' | 'PLAYING' | 'PAUSED';
 
+/** Recursively collect all entities (including children) for systems to process */
+function collectAllEntities(entities: Entity[]): Entity[] {
+  const result: Entity[] = [];
+  for (const entity of entities) {
+    result.push(entity);
+    if (entity.children.length > 0) {
+      result.push(...collectAllEntities(entity.children));
+    }
+  }
+  return result;
+}
+
 export class GameLoop {
   public state: EngineState = 'EDITING';
   public timeInfo: TimeInfo = { deltaTime: 0, elapsed: 0, frameCount: 0 };
@@ -34,20 +46,34 @@ export class GameLoop {
 
   setScene(scene: Scene): void {
     this.scene = scene;
+    // Find camera entity and assign to renderer
+    this.syncCameraEntity();
+  }
+
+  private syncCameraEntity(): void {
+    const allEntities = collectAllEntities(this.scene.entities);
+    const camera = allEntities.find(e => e.hasComponent('Camera2DComponent'));
+    this.renderer.cameraEntity = camera ?? null;
   }
 
   play(): void {
     if (this.state === 'PLAYING') return;
     this.state = 'PLAYING';
 
+    this.syncCameraEntity();
+
     if (this.timeInfo.elapsed === 0) {
       // Fresh start — compile and start scripts
+      const allEntities = collectAllEntities(this.scene.entities);
       const sceneProxy: SceneProxy = {
-        getEntityByName: (name: string) => this.scene.getEntityByName(name),
-        getAllEntities: () => this.scene.entities,
+        getEntityByName: (name: string) => {
+          const all = collectAllEntities(this.scene.entities);
+          return all.find(e => e.name === name) ?? null;
+        },
+        getAllEntities: () => collectAllEntities(this.scene.entities),
       };
       this.scriptRunner.startAll(
-        this.scene.entities,
+        allEntities,
         this.inputManager,
         this.timeInfo,
         sceneProxy
@@ -79,9 +105,10 @@ export class GameLoop {
 
   /** Editor-mode render (no physics/scripts, just draw) */
   renderEditor(entities: Entity[], selectedId: string | null): void {
-    this.renderer.clear();
+    this.renderer.clear(false); // editor uses default dark bg
     this.renderer.drawGrid();
-    this.renderer.renderEntities(entities, selectedId);
+    const allEntities = collectAllEntities(entities);
+    this.renderer.renderEntities(allEntities, selectedId);
   }
 
   private loop = (now: number): void => {
@@ -93,16 +120,17 @@ export class GameLoop {
     this.timeInfo.elapsed += dt;
     this.timeInfo.frameCount++;
 
+    const allEntities = collectAllEntities(this.scene.entities);
+
     // Update scripts
     this.scriptRunner.updateAll(dt);
 
     // Update physics
-    this.physicsSystem.update(this.scene.entities, dt);
+    this.physicsSystem.update(allEntities, dt);
 
-    // Render
-    this.renderer.clear();
-    this.renderer.drawGrid();
-    this.renderer.renderEntities(this.scene.entities, null);
+    // Render — use camera background color during play
+    this.renderer.clear(true);
+    this.renderer.renderEntities(allEntities, null);
 
     // Notify store
     this.onFrameCallback?.();

@@ -39,27 +39,40 @@ declare function onUpdate(deltaTime: number): void;
 declare function onDestroy(): void;
 `;
 
+/** Find entity in nested tree */
+function findEntityInTree(entities: ReturnType<typeof useEngineStore.getState>['entities'], id: string): ReturnType<typeof useEngineStore.getState>['entities'][number] | undefined {
+  for (const e of entities) {
+    if (e.id === id) return e;
+    const found = findEntityInTree(e.children, id);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 function ScriptEditor() {
   const editingScriptEntityId = useEngineStore(s => s.editingScriptEntityId);
+  const editingScriptComponentId = useEngineStore(s => s.editingScriptComponentId);
   const setEditingScript = useEngineStore(s => s.setEditingScript);
   const entities = useEngineStore(s => s.entities);
-  const updateComponent = useEngineStore(s => s.updateComponent);
+  const updateComponentById = useEngineStore(s => s.updateComponentById);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
-  const sourceRef = useRef<string>('');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const entity = editingScriptEntityId
-    ? entities.find(e => e.id === editingScriptEntityId) ?? null
+    ? findEntityInTree(entities, editingScriptEntityId) ?? null
     : null;
 
-  const script = entity?.getComponent<ScriptComponent>('ScriptComponent') ?? null;
+  const script = entity && editingScriptComponentId
+    ? entity.getComponentById<ScriptComponent>(editingScriptComponentId) ?? null
+    : null;
 
-  // Keep source in sync when script entity changes
+  // Cleanup timer on unmount
   useEffect(() => {
-    if (script) {
-      sourceRef.current = script.scriptSource;
-    }
-  }, [script]);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor as typeof editorRef.current;
@@ -72,12 +85,32 @@ function ScriptEditor() {
     monaco.languages.typescript.javascriptDefaults.addExtraLib(SCRIPTING_TYPES, 'ts:scripting.d.ts');
   }, []);
 
+  // Auto-save with debounce
+  const handleChange = useCallback((value: string | undefined) => {
+    if (!editingScriptEntityId || !editingScriptComponentId) return;
+    const src = value ?? '';
+
+    // Clear previous timer
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    // Save after a short debounce (300ms)
+    saveTimerRef.current = setTimeout(() => {
+      updateComponentById(editingScriptEntityId, editingScriptComponentId, (comp) => {
+        (comp as ScriptComponent).scriptSource = src;
+      });
+    }, 300);
+  }, [editingScriptEntityId, editingScriptComponentId, updateComponentById]);
+
+  // Manual save (Ctrl+S shortcut via Monaco or button)
   const handleSave = useCallback(() => {
-    if (!editingScriptEntityId || !script) return;
-    updateComponent(editingScriptEntityId, 'ScriptComponent', (comp) => {
-      (comp as ScriptComponent).scriptSource = sourceRef.current;
+    if (!editingScriptEntityId || !editingScriptComponentId || !editorRef.current) return;
+    const src = editorRef.current.getValue() as string;
+    // Cancel any pending auto-save
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    updateComponentById(editingScriptEntityId, editingScriptComponentId, (comp) => {
+      (comp as ScriptComponent).scriptSource = src;
     });
-  }, [editingScriptEntityId, script, updateComponent]);
+  }, [editingScriptEntityId, editingScriptComponentId, updateComponentById]);
 
   if (!entity || !script) {
     return (
@@ -96,19 +129,19 @@ function ScriptEditor() {
           📝 {script.scriptName} — {entity.name}
         </span>
         <div className="script-editor-actions">
+          <span className="script-autosave-hint">auto-saves</span>
           <button className="toolbar-btn" onClick={handleSave}>💾 Save</button>
           <button className="toolbar-btn" onClick={() => setEditingScript(null)}>✕ Close</button>
         </div>
       </div>
       <div className="script-editor-body">
         <Editor
+          key={editingScriptComponentId}
           height="100%"
           language="javascript"
           theme="vs-dark"
           defaultValue={script.scriptSource}
-          onChange={(value) => {
-            sourceRef.current = value ?? '';
-          }}
+          onChange={handleChange}
           onMount={handleEditorMount}
           options={{
             minimap: { enabled: false },

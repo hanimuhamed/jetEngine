@@ -5,3 +5,4 @@ export type { ShapeType } from './SpriteRenderer';
 export { RigidBody2D } from './RigidBody2D';
 export { Collider2D } from './Collider2D';
 export { ScriptComponent, DEFAULT_SCRIPT_TEMPLATE } from './ScriptComponent';
+export { Camera2DComponent } from './Camera2DComponent';

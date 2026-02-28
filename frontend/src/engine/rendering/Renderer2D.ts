@@ -3,6 +3,7 @@ import { Entity } from '../core/Entity';
 import { Vec2 } from '../core/Math2D';
 import { Transform2D } from '../components/Transform2D';
 import { SpriteRenderer } from '../components/SpriteRenderer';
+import { Camera2DComponent } from '../components/Camera2DComponent';
 
 export interface Camera2D {
   position: Vec2;
@@ -13,6 +14,9 @@ export class Renderer2D {
   private ctx: CanvasRenderingContext2D | null = null;
   private _canvas: HTMLCanvasElement | null = null;
   public camera: Camera2D = { position: Vec2.zero(), zoom: 1 };
+
+  /** The camera entity reference — set by game loop */
+  public cameraEntity: Entity | null = null;
 
   attach(canvas: HTMLCanvasElement): void {
     this._canvas = canvas;
@@ -45,10 +49,27 @@ export class Renderer2D {
     );
   }
 
-  clear(): void {
+  clear(useBackgroundColor: boolean = false): void {
     if (!this.ctx || !this._canvas) return;
-    this.ctx.fillStyle = '#1a1a2e';
+
+    // Determine background color
+    let bgColor = '#1a1a2e';
+    let bgImage: HTMLImageElement | null = null;
+
+    if (useBackgroundColor && this.cameraEntity) {
+      const cam = this.cameraEntity.getComponent<Camera2DComponent>('Camera2DComponent');
+      if (cam) {
+        bgColor = cam.backgroundColor;
+        bgImage = cam.getBackgroundImage();
+      }
+    }
+
+    this.ctx.fillStyle = bgColor;
     this.ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+
+    if (bgImage) {
+      this.ctx.drawImage(bgImage, 0, 0, this._canvas.width, this._canvas.height);
+    }
   }
 
   drawGrid(): void {

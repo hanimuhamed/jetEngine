@@ -6,6 +6,7 @@ import { SpriteRenderer } from '../components/SpriteRenderer';
 import { RigidBody2D } from '../components/RigidBody2D';
 import { Collider2D } from '../components/Collider2D';
 import { ScriptComponent } from '../components/ScriptComponent';
+import { Camera2DComponent } from '../components/Camera2DComponent';
 import { Scene } from './Scene';
 
 export interface SerializedScene {
@@ -18,6 +19,7 @@ export interface SerializedEntity {
   name: string;
   active: boolean;
   components: Record<string, unknown>[];
+  children?: SerializedEntity[];
 }
 
 function createComponentFromType(type: string): Component | null {
@@ -32,22 +34,54 @@ function createComponentFromType(type: string): Component | null {
       return new Collider2D();
     case 'ScriptComponent':
       return new ScriptComponent();
+    case 'Camera2DComponent':
+      return new Camera2DComponent();
     default:
       console.warn(`Unknown component type: ${type}`);
       return null;
   }
 }
 
+function serializeEntity(entity: Entity): SerializedEntity {
+  return {
+    id: entity.id,
+    name: entity.name,
+    active: entity.active,
+    components: entity.getComponentsList().map(c => c.serialize()),
+    children: entity.children.length > 0
+      ? entity.children.map(child => serializeEntity(child))
+      : undefined,
+  };
+}
+
+function deserializeEntity(data: SerializedEntity): Entity {
+  const entity = new Entity(data.name, data.id);
+  entity.active = data.active;
+
+  for (const compData of data.components) {
+    const type = compData.type as string;
+    const component = createComponentFromType(type);
+    if (component) {
+      component.deserialize(compData);
+      entity.addComponent(component);
+    }
+  }
+
+  if (data.children) {
+    for (const childData of data.children) {
+      const child = deserializeEntity(childData);
+      entity.addChild(child);
+    }
+  }
+
+  return entity;
+}
+
 export class SceneSerializer {
   static serialize(scene: Scene): SerializedScene {
     return {
       name: scene.name,
-      entities: scene.entities.map(entity => ({
-        id: entity.id,
-        name: entity.name,
-        active: entity.active,
-        components: entity.getComponentsList().map(c => c.serialize()),
-      })),
+      entities: scene.entities.map(entity => serializeEntity(entity)),
     };
   }
 
@@ -55,18 +89,7 @@ export class SceneSerializer {
     const scene = new Scene(data.name);
 
     for (const entityData of data.entities) {
-      const entity = new Entity(entityData.name, entityData.id);
-      entity.active = entityData.active;
-
-      for (const compData of entityData.components) {
-        const type = compData.type as string;
-        const component = createComponentFromType(type);
-        if (component) {
-          component.deserialize(compData);
-          entity.addComponent(component);
-        }
-      }
-
+      const entity = deserializeEntity(entityData);
       scene.addEntity(entity);
     }
 

@@ -801,3 +801,115 @@ input[type="checkbox"] {
   display: flex;
   gap: 6px;
 }
+
+/* ─── Bottom row (Script/Assets + Console) ─ */
+.bottom-row {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  gap: 0;
+}
+
+.bottom-right {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ─── Console Panel ────────────────────── */
+.console-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  border-bottom: 1px solid #1a1a1f;
+  flex-shrink: 0;
+}
+
+.console-count {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.console-logs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.console-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 12px;
+  text-align: center;
+}
+
+.console-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 10px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  border-bottom: 1px solid #ffffff06;
+  min-height: 22px;
+}
+
+.console-entry:hover {
+  background: #ffffff06;
+}
+
+.console-entry-error {
+  background: #ff4a4a0a;
+}
+
+.console-entry-warn {
+  background: #ffcc4a06;
+}
+
+.console-level-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.console-timestamp {
+  color: #555;
+  font-size: 9px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.console-message {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* ─── Script auto-save hint ────────────── */
+.script-autosave-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-right: 8px;
+}
+
+/* ─── Camera badge ─────────────────────── */
+.camera-badge {
+  font-size: 14px;
+}
+
+.tree-label.camera {
+  color: #ffcc4a;
+  font-weight: 600;
+}
