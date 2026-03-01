@@ -94,12 +94,20 @@ function findEntityInTree(entities: ReturnType<typeof useEngineStore.getState>['
 function ScriptEditor() {
   const editingScriptEntityId = useEngineStore(s => s.editingScriptEntityId);
   const editingScriptComponentId = useEngineStore(s => s.editingScriptComponentId);
+  const editingScriptAssetId = useEngineStore(s => s.editingScriptAssetId);
   const setEditingScript = useEngineStore(s => s.setEditingScript);
+  const setEditingScriptAsset = useEngineStore(s => s.setEditingScriptAsset);
   const entities = useEngineStore(s => s.entities);
+  const assets = useEngineStore(s => s.assets);
   const updateComponentById = useEngineStore(s => s.updateComponentById);
+  const updateScriptAsset = useEngineStore(s => s.updateScriptAsset);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Determine mode: editing an entity's script component, or a script asset
+  const isAssetMode = !!editingScriptAssetId;
+  const scriptAsset = isAssetMode ? assets.find(a => a.id === editingScriptAssetId) : null;
 
   const entity = editingScriptEntityId
     ? findEntityInTree(entities, editingScriptEntityId) ?? null
@@ -108,6 +116,18 @@ function ScriptEditor() {
   const script = entity && editingScriptComponentId
     ? entity.getComponentById<ScriptComponent>(editingScriptComponentId) ?? null
     : null;
+
+  // The source code to show in the editor
+  const editorSource = isAssetMode
+    ? (scriptAsset?.scriptSource ?? '')
+    : (script?.scriptSource ?? '');
+
+  // The title to display
+  const editorTitle = isAssetMode
+    ? `📜 ${scriptAsset?.name ?? 'Script Asset'}`
+    : `${script?.scriptName ?? 'Script'} — ${entity?.name ?? ''}`;
+
+  const isActive = isAssetMode ? !!scriptAsset : (!!entity && !!script);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -129,7 +149,6 @@ function ScriptEditor() {
 
   // Auto-save with debounce
   const handleChange = useCallback((value: string | undefined) => {
-    if (!editingScriptEntityId || !editingScriptComponentId) return;
     const src = value ?? '';
 
     // Clear previous timer
@@ -137,28 +156,45 @@ function ScriptEditor() {
 
     // Save after a short debounce (300ms)
     saveTimerRef.current = setTimeout(() => {
+      if (isAssetMode && editingScriptAssetId) {
+        updateScriptAsset(editingScriptAssetId, src);
+      } else if (editingScriptEntityId && editingScriptComponentId) {
+        updateComponentById(editingScriptEntityId, editingScriptComponentId, (comp) => {
+          (comp as ScriptComponent).scriptSource = src;
+        });
+      }
+    }, 300);
+  }, [isAssetMode, editingScriptAssetId, editingScriptEntityId, editingScriptComponentId, updateComponentById, updateScriptAsset]);
+
+  // Manual save
+  const handleSave = useCallback(() => {
+    if (!editorRef.current) return;
+    const src = editorRef.current.getValue() as string;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    if (isAssetMode && editingScriptAssetId) {
+      updateScriptAsset(editingScriptAssetId, src);
+    } else if (editingScriptEntityId && editingScriptComponentId) {
       updateComponentById(editingScriptEntityId, editingScriptComponentId, (comp) => {
         (comp as ScriptComponent).scriptSource = src;
       });
-    }, 300);
-  }, [editingScriptEntityId, editingScriptComponentId, updateComponentById]);
+    }
+  }, [isAssetMode, editingScriptAssetId, editingScriptEntityId, editingScriptComponentId, updateComponentById, updateScriptAsset]);
 
-  // Manual save (Ctrl+S shortcut via Monaco or button)
-  const handleSave = useCallback(() => {
-    if (!editingScriptEntityId || !editingScriptComponentId || !editorRef.current) return;
-    const src = editorRef.current.getValue() as string;
-    // Cancel any pending auto-save
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    updateComponentById(editingScriptEntityId, editingScriptComponentId, (comp) => {
-      (comp as ScriptComponent).scriptSource = src;
-    });
-  }, [editingScriptEntityId, editingScriptComponentId, updateComponentById]);
+  const handleClose = useCallback(() => {
+    if (isAssetMode) {
+      setEditingScriptAsset(null);
+    } else {
+      setEditingScript(null);
+    }
+  }, [isAssetMode, setEditingScriptAsset, setEditingScript]);
 
-  if (!entity || !script) {
+  if (!isActive) {
     return (
       <div className="script-editor">
         <div className="script-editor-empty">
-          No script selected. Select an entity with a ScriptComponent and click "Open in Script Editor".
+          No script selected. Click a script asset in the Assets panel to edit it,
+          or reference a script in a ScriptComponent.
         </div>
       </div>
     );
@@ -168,21 +204,21 @@ function ScriptEditor() {
     <div className="script-editor">
       <div className="script-editor-header">
         <span className="script-editor-title">
-          {script.scriptName} — {entity.name}
+          {editorTitle}
         </span>
         <div className="script-editor-actions">
           <span className="script-autosave-hint">auto-saves</span>
           <button className="toolbar-btn" onClick={handleSave}>💾 Save</button>
-          <button className="toolbar-btn" onClick={() => setEditingScript(null)}>✕ Close</button>
+          <button className="toolbar-btn" onClick={handleClose}>✕ Close</button>
         </div>
       </div>
       <div className="script-editor-body">
         <Editor
-          key={editingScriptComponentId}
+          key={isAssetMode ? editingScriptAssetId : editingScriptComponentId}
           height="100%"
           language="javascript"
           theme="vs-dark"
-          defaultValue={script.scriptSource}
+          defaultValue={editorSource}
           onChange={handleChange}
           onMount={handleEditorMount}
           options={{

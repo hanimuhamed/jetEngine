@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { Collider2D } from '../../engine/components/Collider2D';
 import type { ColliderShape } from '../../engine/components/Collider2D';
-import { Vec2 } from '../../engine/core/Math2D';
+import { SpriteRenderer } from '../../engine/components/SpriteRenderer';
 import DraggableNumber from '../DraggableNumber';
 import type { Entity } from '../../engine/core/Entity';
 
@@ -38,34 +38,38 @@ export function Collider2DInspector({ entityId }: { entityId: string }) {
   const collider = entity?.getComponent<Collider2D>('Collider2D');
   if (!collider) return null;
 
+  const sprite = entity?.getComponent<SpriteRenderer>('SpriteRenderer');
+
   const update = useCallback((updater: (c: Collider2D) => void) => {
     updateComponent(entityId, 'Collider2D', (comp) => {
       updater(comp as Collider2D);
     });
   }, [entityId, updateComponent]);
 
-  const addPoint = () => {
+  /** When switching to box collider on a polygon shape, auto-compute bounding box */
+  const handleShapeChange = useCallback((newShape: ColliderShape) => {
     update(c => {
-      c.points = [...c.points, new Vec2(0, 0)];
+      c.shape = newShape;
+      if (newShape === 'box' && sprite && sprite.shapeType === 'polygon' && sprite.polygonPoints.length >= 3) {
+        // Compute axis-aligned bounding box of all polygon points
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const pt of sprite.polygonPoints) {
+          if (pt.x < minX) minX = pt.x;
+          if (pt.y < minY) minY = pt.y;
+          if (pt.x > maxX) maxX = pt.x;
+          if (pt.y > maxY) maxY = pt.y;
+        }
+        c.width = maxX - minX;
+        c.height = maxY - minY;
+        // Center the offset on the polygon center
+        c.offset.x = (minX + maxX) / 2;
+        c.offset.y = (minY + maxY) / 2;
+      }
     });
-  };
+  }, [update, sprite]);
 
-  const removePoint = (idx: number) => {
-    update(c => {
-      c.points = c.points.filter((_, i) => i !== idx);
-    });
-  };
-
-  const updatePoint = (idx: number, axis: 'x' | 'y', val: number) => {
-    update(c => {
-      const pts = [...c.points];
-      pts[idx] = new Vec2(
-        axis === 'x' ? val : pts[idx].x,
-        axis === 'y' ? val : pts[idx].y
-      );
-      c.points = pts;
-    });
-  };
+  // Count polygon points from SpriteRenderer for display
+  const polyPointCount = sprite?.polygonPoints?.length ?? 0;
 
   return (
     <div className="inspector-fields">
@@ -74,7 +78,7 @@ export function Collider2DInspector({ entityId }: { entityId: string }) {
         <select
           className="inspector-select"
           value={collider.shape}
-          onChange={(e) => update(c => { c.shape = e.target.value as ColliderShape; })}
+          onChange={(e) => handleShapeChange(e.target.value as ColliderShape)}
         >
           {SHAPE_OPTIONS.map(opt => (
             <option key={opt} value={opt}>{opt}</option>
@@ -101,21 +105,10 @@ export function Collider2DInspector({ entityId }: { entityId: string }) {
 
       {collider.shape === 'polygon' && (
         <div className="field-group">
-          <label className="field-group-label">Points</label>
-          {collider.points.map((pt, idx) => (
-            <div key={idx} className="field-row" style={{ marginBottom: 4 }}>
-              <DraggableNumber label="X" value={pt.x} onChange={(v) => updatePoint(idx, 'x', v)} />
-              <DraggableNumber label="Y" value={pt.y} onChange={(v) => updatePoint(idx, 'y', v)} />
-              <button
-                className="inspector-remove-point-btn"
-                onClick={() => removePoint(idx)}
-                title="Remove point"
-              >✕</button>
-            </div>
-          ))}
-          <button className="inspector-add-point-btn" onClick={addPoint}>
-            + Add Point
-          </button>
+          <label className="field-group-label">Polygon</label>
+          <span className="inspector-hint">
+            Uses {polyPointCount} points from SpriteRenderer shape
+          </span>
         </div>
       )}
 

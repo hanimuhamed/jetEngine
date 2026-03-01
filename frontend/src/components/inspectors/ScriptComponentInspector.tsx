@@ -25,7 +25,6 @@ function findEntityAnywhere(entities: Entity[], prefabEntity: Entity | null, id:
 export function ScriptComponentInspector({ entityId, componentId }: { entityId: string; componentId: string }) {
   const entities = useEngineStore(s => s.entities);
   const editingPrefabEntity = useEngineStore(s => s.editingPrefabEntity);
-  const setEditingScript = useEngineStore(s => s.setEditingScript);
   const updateComponentById = useEngineStore(s => s.updateComponentById);
   const assets = useEngineStore(s => s.assets);
   const _tick = useEngineStore(s => s._tick);
@@ -37,16 +36,11 @@ export function ScriptComponentInspector({ entityId, componentId }: { entityId: 
 
   const scriptAssets = assets.filter(a => a.type === 'script');
 
-  const handleRename = useCallback((newName: string) => {
-    updateComponentById(entityId, componentId, (comp) => {
-      (comp as ScriptComponent).scriptName = newName;
-    });
-  }, [entityId, componentId, updateComponentById]);
-
   const handleAssetChange = useCallback((assetName: string) => {
     updateComponentById(entityId, componentId, (comp) => {
       const sc = comp as ScriptComponent;
       sc.scriptAssetName = assetName;
+      sc.scriptName = assetName || 'InlineScript';
       // If linking to an asset, load its source
       if (assetName) {
         const asset = assets.find(a => a.type === 'script' && a.name === assetName);
@@ -60,37 +54,21 @@ export function ScriptComponentInspector({ entityId, componentId }: { entityId: 
   return (
     <div className="inspector-fields">
       <div className="field-group">
-        <label className="field-group-label">Script Name</label>
-        <input
-          type="text"
-          className="inspector-text-input"
-          value={script.scriptName}
-          onChange={(e) => handleRename(e.target.value)}
-        />
+        <label className="field-group-label">Script Asset</label>
+        <select
+          className="inspector-select"
+          value={script.scriptAssetName}
+          onChange={(e) => handleAssetChange(e.target.value)}
+        >
+          <option value="">(None)</option>
+          {scriptAssets.map(a => (
+            <option key={a.id} value={a.name}>{a.name}</option>
+          ))}
+        </select>
+        {scriptAssets.length === 0 && (
+          <span className="inspector-hint">No script assets — create one in Assets panel</span>
+        )}
       </div>
-
-      {scriptAssets.length > 0 && (
-        <div className="field-group">
-          <label className="field-group-label">Script Asset</label>
-          <select
-            className="inspector-select"
-            value={script.scriptAssetName}
-            onChange={(e) => handleAssetChange(e.target.value)}
-          >
-            <option value="">(Inline Script)</option>
-            {scriptAssets.map(a => (
-              <option key={a.id} value={a.name}>{a.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <button
-        className="inspector-open-script-btn"
-        onClick={() => setEditingScript(entityId, componentId)}
-      >
-        Open in Script Editor
-      </button>
     </div>
   );
 }

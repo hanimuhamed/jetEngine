@@ -4,6 +4,29 @@ import { Vec2 } from '../core/Math2D';
 
 export type ShapeType = 'rectangle' | 'circle' | 'triangle' | 'polygon' | 'sprite';
 
+/** Generate default 5-pointed star polygon (unit scale, fits inside ~25px radius).
+ *  Points are in local Y-up space. Tip points up (+Y). */
+export function defaultStarPoints(): Vec2[] {
+  const pts: Vec2[] = [];
+  const outerR = 25;
+  const innerR = 10;
+  for (let i = 0; i < 5; i++) {
+    // Outer point — start from top (+90° in Y-up)
+    const outerAngle = (i * 72 + 90) * Math.PI / 180;
+    pts.push(new Vec2(
+      Math.round(outerR * Math.cos(outerAngle) * 100) / 100,
+      Math.round(outerR * Math.sin(outerAngle) * 100) / 100
+    ));
+    // Inner point
+    const innerAngle = ((i * 72 + 36) + 90) * Math.PI / 180;
+    pts.push(new Vec2(
+      Math.round(innerR * Math.cos(innerAngle) * 100) / 100,
+      Math.round(innerR * Math.sin(innerAngle) * 100) / 100
+    ));
+  }
+  return pts;
+}
+
 export class SpriteRenderer extends Component {
   public color: string;
   public shapeType: ShapeType;

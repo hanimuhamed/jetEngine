@@ -6,7 +6,7 @@ import Inspector from "./components/Inspector";
 import Toolbar from "./components/Toolbar";
 import SceneView from "./components/SceneView";
 import ScriptEditor from "./components/ScriptEditor";
-import AssetPanel from "./components/AssetPanel";
+import AssetPanel, { AssetPanelHeaderButtons } from "./components/AssetPanel";
 import ConsolePanel from "./components/ConsolePanel";
 import { useEngineStore } from "./store/engineStore";
 
@@ -33,9 +33,8 @@ export default function App() {
   const topRowRef = useRef<HTMLDivElement>(null);
 
   const editingScriptEntityId = useEngineStore((s) => s.editingScriptEntityId);
-  const setEditingScript = useEngineStore((s) => s.setEditingScript);
+  const editingScriptAssetId = useEngineStore((s) => s.editingScriptAssetId);
   const editingPrefabId = useEngineStore((s) => s.editingPrefabId);
-  const editingPrefabEntity = useEngineStore((s) => s.editingPrefabEntity);
   const savePrefab = useEngineStore((s) => s.savePrefab);
   const cancelPrefabEdit = useEngineStore((s) => s.cancelPrefabEdit);
   const assets = useEngineStore((s) => s.assets);
@@ -76,30 +75,42 @@ export default function App() {
   }, [fileMenuOpen]);
 
   const handleSave = useCallback(async () => {
-    setFileMenuOpen(false);
-    const json = saveScene();
+    // IMPORTANT: showSaveFilePicker must be called synchronously from user gesture.
+    // Call it FIRST before any state updates or async work.
     const safeName = projectName.replace(/\s+/g, '_').toLowerCase();
+    let fileHandle: FileSystemFileHandle | null = null;
 
-    // Try native file picker (always opens OS dialog)
     if ('showSaveFilePicker' in window) {
       try {
-        const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+        fileHandle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
           suggestedName: `${safeName}.jet`,
           types: [{
             description: 'Jet Engine Project',
             accept: { 'application/json': ['.jet'] },
           }],
         });
-        const writable = await handle.createWritable();
+      } catch (err) {
+        if ((err as DOMException)?.name === 'AbortError') {
+          setFileMenuOpen(false);
+          return;
+        }
+        // Fall through to download fallback
+      }
+    }
+
+    setFileMenuOpen(false);
+    const json = saveScene();
+
+    if (fileHandle) {
+      try {
+        const writable = await fileHandle.createWritable();
         await writable.write(json);
         await writable.close();
-        // Update project name from chosen filename
-        const name = handle.name;
+        const name = fileHandle.name;
         setProjectName(parseProjectName(name));
         return;
-      } catch (err) {
-        // User cancelled or API not available — fall through to download
-        if ((err as DOMException)?.name === 'AbortError') return;
+      } catch {
+        // Fall through to download fallback
       }
     }
 
@@ -227,7 +238,7 @@ export default function App() {
         />
       </div>
 
-      {editingScriptEntityId ? (
+      {(editingScriptEntityId || editingScriptAssetId) ? (
         /* ── Full-screen Script Editor + Console (75/25) ── */
         <div className="script-fullscreen-container">
           <Panel
@@ -300,6 +311,7 @@ export default function App() {
               <Panel
                 title="ASSETS"
                 className="middle-bottom"
+                headerRight={<AssetPanelHeaderButtons />}
               >
                 <AssetPanel />
               </Panel>

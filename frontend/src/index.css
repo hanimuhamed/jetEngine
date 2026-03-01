@@ -249,6 +249,23 @@ html, body, #root {
   gap: 4px;
 }
 
+.panel-header-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.panel-header-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+}
+
 .panel-body {
   flex: 1;
   min-height: 0;
@@ -642,6 +659,12 @@ input[type="number"].dragging {
 
 .inspector-open-script-btn:hover {
   background: #5aafff;
+}
+
+.inspector-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .inspector-add-component {
@@ -1165,6 +1188,7 @@ input[type="checkbox"] {
 /* ─── Script Asset Items ───────────────── */
 .script-item {
   border-left: 2px solid #ffa500;
+  cursor: pointer;
 }
 
 .script-item:hover {

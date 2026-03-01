@@ -13,8 +13,6 @@ export class Collider2D extends Component {
   public shape: ColliderShape;
   /** Radius for circle colliders (defaults to half of width) */
   public radius: number;
-  /** Polygon points (local space, relative to entity origin) */
-  public points: Vec2[];
 
   constructor(width: number = 50, height: number = 50) {
     super('Collider2D');
@@ -25,25 +23,6 @@ export class Collider2D extends Component {
     this.showHitbox = false;
     this.shape = 'box';
     this.radius = 25;
-    this.points = [];
-  }
-
-  /**
-   * For polygon collider: compute the smallest axis-aligned bounding box
-   * containing all polygon points. If no points, fall back to width/height.
-   */
-  getPolygonAABB(): { minX: number; minY: number; maxX: number; maxY: number } {
-    if (this.points.length === 0) {
-      return { minX: -this.width / 2, minY: -this.height / 2, maxX: this.width / 2, maxY: this.height / 2 };
-    }
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const p of this.points) {
-      if (p.x < minX) minX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y > maxY) maxY = p.y;
-    }
-    return { minX, minY, maxX, maxY };
   }
 
   serialize(): Record<string, unknown> {
@@ -56,7 +35,6 @@ export class Collider2D extends Component {
       offset: this.offset.toPlain(),
       isTrigger: this.isTrigger,
       showHitbox: this.showHitbox,
-      points: this.points.map(p => p.toPlain()),
     };
   }
 
@@ -69,9 +47,5 @@ export class Collider2D extends Component {
     if (off) this.offset = Vec2.fromPlain(off);
     this.isTrigger = (data.isTrigger as boolean) ?? false;
     this.showHitbox = (data.showHitbox as boolean) ?? false;
-    const pts = data.points as { x: number; y: number }[];
-    if (Array.isArray(pts)) {
-      this.points = pts.map(p => Vec2.fromPlain(p));
-    }
   }
 }

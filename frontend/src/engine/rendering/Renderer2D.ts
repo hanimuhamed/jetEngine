@@ -265,30 +265,47 @@ export class Renderer2D {
       ctx.arc(center.x, center.y, screenRadius, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
-    } else if (collider.shape === 'polygon' && collider.points.length >= 3) {
-      // Draw polygon hitbox in screen space
+    } else if (collider.shape === 'polygon') {
+      // Draw polygon hitbox using SpriteRenderer points (rotates with entity)
+      const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
+      const pts = sprite?.polygonPoints;
+      if (pts && pts.length >= 3) {
+        ctx.save();
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        const first = this.localToScreen(entity, pts[0].x + collider.offset.x, pts[0].y + collider.offset.y);
+        ctx.moveTo(first.x, first.y);
+        for (let i = 1; i < pts.length; i++) {
+          const p = this.localToScreen(entity, pts[i].x + collider.offset.x, pts[i].y + collider.offset.y);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      // Box hitbox: draw as OBB (rotates with entity)
+      const hw = collider.width / 2;
+      const hh = collider.height / 2;
+      const ox = collider.offset.x;
+      const oy = collider.offset.y;
+      const c0 = this.localToScreen(entity, -hw + ox, -hh + oy);
+      const c1 = this.localToScreen(entity,  hw + ox, -hh + oy);
+      const c2 = this.localToScreen(entity,  hw + ox,  hh + oy);
+      const c3 = this.localToScreen(entity, -hw + ox,  hh + oy);
       ctx.save();
       ctx.strokeStyle = '#00ff00';
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
       ctx.beginPath();
-      const first = this.localToScreen(entity, collider.points[0].x + collider.offset.x, collider.points[0].y + collider.offset.y);
-      ctx.moveTo(first.x, first.y);
-      for (let i = 1; i < collider.points.length; i++) {
-        const p = this.localToScreen(entity, collider.points[i].x + collider.offset.x, collider.points[i].y + collider.offset.y);
-        ctx.lineTo(p.x, p.y);
-      }
+      ctx.moveTo(c0.x, c0.y);
+      ctx.lineTo(c1.x, c1.y);
+      ctx.lineTo(c2.x, c2.y);
+      ctx.lineTo(c3.x, c3.y);
       ctx.closePath();
       ctx.stroke();
-      ctx.restore();
-    } else {
-      // Box hitbox: draw as AABB in screen space (matches physics AABB)
-      const aabb = this.getScreenAABB(entity, collider.width / 2, collider.height / 2, collider.offset.x, collider.offset.y);
-      ctx.save();
-      ctx.strokeStyle = '#00ff00';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([]);
-      ctx.strokeRect(aabb.minX, aabb.minY, aabb.maxX - aabb.minX, aabb.maxY - aabb.minY);
       ctx.restore();
     }
   }

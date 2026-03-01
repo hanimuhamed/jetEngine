@@ -101,6 +101,10 @@ export interface EngineStore {
   editingScriptComponentId: string | null;
   setEditingScript: (entityId: string | null, componentId?: string | null) => void;
 
+  // Script asset editing — open script editor for a script asset directly
+  editingScriptAssetId: string | null;
+  setEditingScriptAsset: (assetId: string | null) => void;
+
   // Console
   consoleLogs: ConsoleEntry[];
   addConsoleLog: (entry: ConsoleEntry) => void;
@@ -638,6 +642,14 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     setEditingScript: (entityId, componentId) => set({
       editingScriptEntityId: entityId,
       editingScriptComponentId: componentId ?? null,
+      editingScriptAssetId: null, // clear asset editing when opening entity script
+    }),
+
+    editingScriptAssetId: null,
+    setEditingScriptAsset: (assetId) => set({
+      editingScriptAssetId: assetId,
+      editingScriptEntityId: null, // clear entity script editing when opening asset
+      editingScriptComponentId: null,
     }),
 
     consoleLogs: [],
