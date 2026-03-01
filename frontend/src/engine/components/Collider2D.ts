@@ -7,6 +7,7 @@ export class Collider2D extends Component {
   public height: number;
   public offset: Vec2;
   public isTrigger: boolean;
+  public showHitbox: boolean;
 
   constructor(width: number = 50, height: number = 50) {
     super('Collider2D');
@@ -14,6 +15,7 @@ export class Collider2D extends Component {
     this.height = height;
     this.offset = Vec2.zero();
     this.isTrigger = false;
+    this.showHitbox = false;
   }
 
   serialize(): Record<string, unknown> {
@@ -23,6 +25,7 @@ export class Collider2D extends Component {
       height: this.height,
       offset: this.offset.toPlain(),
       isTrigger: this.isTrigger,
+      showHitbox: this.showHitbox,
     };
   }
 
@@ -32,5 +35,6 @@ export class Collider2D extends Component {
     const off = data.offset as { x: number; y: number };
     if (off) this.offset = Vec2.fromPlain(off);
     this.isTrigger = (data.isTrigger as boolean) ?? false;
+    this.showHitbox = (data.showHitbox as boolean) ?? false;
   }
 }

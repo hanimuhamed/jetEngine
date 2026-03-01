@@ -4,6 +4,8 @@ import { Vec2 } from '../core/Math2D';
 import { Transform2D } from '../components/Transform2D';
 import { SpriteRenderer } from '../components/SpriteRenderer';
 import { Camera2DComponent } from '../components/Camera2DComponent';
+import { Collider2D } from '../components/Collider2D';
+import { getWorldTransform } from '../core/WorldTransform';
 
 export interface Camera2D {
   position: Vec2;
@@ -65,7 +67,6 @@ export class Renderer2D {
   clear(useBackgroundColor: boolean = false): void {
     if (!this.ctx || !this._canvas) return;
 
-    // Determine background color
     let bgColor = '#1a1a2e';
     let bgImage: HTMLImageElement | null = null;
 
@@ -110,41 +111,46 @@ export class Renderer2D {
     ctx.stroke();
   }
 
-  /** Compute world transform for an entity, taking parent hierarchy into account */
-  getWorldTransform(entity: Entity): { position: Vec2; rotation: number; scaleX: number; scaleY: number } {
-    const t = entity.getComponent<Transform2D>('Transform2D');
-    if (!t) return { position: Vec2.zero(), rotation: 0, scaleX: 1, scaleY: 1 };
+  /** Expose getWorldTransform for external use (hit test, etc.) */
+  getWorldTransform(entity: Entity) {
+    return getWorldTransform(entity);
+  }
 
-    const localX = t.position.x;
-    const localY = t.position.y;
-    const localRot = t.rotation;
-    const localScaleX = t.scale.x;
-    const localScaleY = t.scale.y;
+  /**
+   * Build the full canvas transform for an entity:
+   * camera transform → parent hierarchy → local TRS
+   * This properly cascades rotation and scale so children deform correctly.
+   */
+  private applyEntityTransform(ctx: CanvasRenderingContext2D, entity: Entity): void {
+    if (!this._canvas) return;
 
-    if (!entity.parent) {
-      return { position: new Vec2(localX, localY), rotation: localRot, scaleX: localScaleX, scaleY: localScaleY };
+    const cx = this._canvas.width / 2;
+    const cy = this._canvas.height / 2;
+
+    // Start with identity, then apply camera transform
+    // Camera: translate to center, zoom, then offset by camera position (Y-up → Y-down flip)
+    ctx.translate(cx, cy);
+    ctx.scale(this.camera.zoom, this.camera.zoom);
+    ctx.translate(-this.camera.position.x, this.camera.position.y);
+
+    // Now walk the hierarchy from root to this entity and multiply local TRS
+    const chain: Entity[] = [];
+    let cur: Entity | null = entity;
+    while (cur) {
+      chain.unshift(cur);
+      cur = cur.parent;
     }
 
-    // Recursively get parent world transform
-    const pw = this.getWorldTransform(entity.parent);
-
-    // Apply parent scale, then parent rotation, then parent translation
-    const rad = (pw.rotation * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-
-    // Scale the local position by parent scale, then rotate by parent rotation
-    const scaledX = localX * pw.scaleX;
-    const scaledY = localY * pw.scaleY;
-    const worldX = pw.position.x + scaledX * cos - scaledY * sin;
-    const worldY = pw.position.y + scaledX * sin + scaledY * cos;
-
-    return {
-      position: new Vec2(worldX, worldY),
-      rotation: pw.rotation + localRot,
-      scaleX: pw.scaleX * localScaleX,
-      scaleY: pw.scaleY * localScaleY,
-    };
+    for (const e of chain) {
+      const t = e.getComponent<Transform2D>('Transform2D');
+      if (!t) continue;
+      // Translate by local position (Y-up → screen Y-down: negate Y)
+      ctx.translate(t.position.x, -t.position.y);
+      // Rotate (negate for Y-down screen space)
+      ctx.rotate((-t.rotation * Math.PI) / 180);
+      // Scale
+      ctx.scale(t.scale.x, t.scale.y);
+    }
   }
 
   renderEntity(entity: Entity): void {
@@ -156,39 +162,63 @@ export class Renderer2D {
     const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
     if (!sprite || !sprite.visible) return;
 
-    const world = this.getWorldTransform(entity);
-
     const ctx = this.ctx;
-    const screenPos = this.worldToScreen(world.position);
-    const w = sprite.width * world.scaleX * this.camera.zoom;
-    const h = sprite.height * world.scaleY * this.camera.zoom;
 
     ctx.save();
-    ctx.translate(screenPos.x, screenPos.y);
-    ctx.rotate((world.rotation * Math.PI) / 180);
+    this.applyEntityTransform(ctx, entity);
+
+    // Draw shape at origin — the transform already placed us correctly
+    const hw = sprite.width / 2;
+    const hh = sprite.height / 2;
 
     const image = sprite.getImage();
 
     if (sprite.shapeType === 'sprite' && image) {
-      ctx.drawImage(image, -w / 2, -h / 2, w, h);
+      ctx.drawImage(image, -hw, -hh, sprite.width, sprite.height);
     } else if (sprite.shapeType === 'circle') {
       ctx.fillStyle = sprite.color;
       ctx.beginPath();
-      ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
       ctx.fill();
     } else if (sprite.shapeType === 'triangle') {
       ctx.fillStyle = sprite.color;
       ctx.beginPath();
-      ctx.moveTo(0, -h / 2);
-      ctx.lineTo(-w / 2, h / 2);
-      ctx.lineTo(w / 2, h / 2);
+      ctx.moveTo(0, -hh);
+      ctx.lineTo(-hw, hh);
+      ctx.lineTo(hw, hh);
       ctx.closePath();
       ctx.fill();
     } else {
       // rectangle (default)
       ctx.fillStyle = sprite.color;
-      ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.fillRect(-hw, -hh, sprite.width, sprite.height);
     }
+
+    ctx.restore();
+  }
+
+  /** Draw collider hitbox outlines (green AABB) for entities with showHitbox enabled */
+  renderHitbox(entity: Entity): void {
+    if (!this.ctx || !entity.active) return;
+    const collider = entity.getComponent<Collider2D>('Collider2D');
+    if (!collider || !collider.showHitbox) return;
+
+    const ctx = this.ctx;
+    ctx.save();
+    this.applyEntityTransform(ctx, entity);
+
+    const hw = collider.width / 2;
+    const hh = collider.height / 2;
+
+    ctx.strokeStyle = '#00ff00';
+    ctx.lineWidth = 2 / this.camera.zoom; // constant screen-space thickness
+    ctx.setLineDash([]);
+    ctx.strokeRect(
+      -hw + collider.offset.x,
+      -hh - collider.offset.y, // Y-flip for offset
+      collider.width,
+      collider.height
+    );
 
     ctx.restore();
   }
@@ -200,31 +230,36 @@ export class Renderer2D {
     if (entity.hasComponent('Camera2DComponent')) return;
 
     const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
-    const world = this.getWorldTransform(entity);
-
-    const screenPos = this.worldToScreen(world.position);
-    const w = (sprite ? sprite.width : 50) * world.scaleX * this.camera.zoom;
-    const h = (sprite ? sprite.height : 50) * world.scaleY * this.camera.zoom;
 
     const ctx = this.ctx;
     ctx.save();
-    ctx.translate(screenPos.x, screenPos.y);
-    ctx.rotate((world.rotation * Math.PI) / 180);
+    this.applyEntityTransform(ctx, entity);
+
+    const w = sprite ? sprite.width : 50;
+    const h = sprite ? sprite.height : 50;
+    const hw = w / 2;
+    const hh = h / 2;
+
+    // We need a consistent line width regardless of entity scale — use inverse scale
+    const world = getWorldTransform(entity);
+    const absScaleX = Math.abs(world.scaleX) || 1;
+    const absScaleY = Math.abs(world.scaleY) || 1;
+    const lineWidth = 2 / (this.camera.zoom * Math.min(absScaleX, absScaleY));
 
     ctx.strokeStyle = '#4a9eff';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(-w / 2 - 4, -h / 2 - 4, w + 8, h + 8);
+    ctx.lineWidth = lineWidth;
+    ctx.setLineDash([4 / (this.camera.zoom * Math.min(absScaleX, absScaleY)), 4 / (this.camera.zoom * Math.min(absScaleX, absScaleY))]);
+    ctx.strokeRect(-hw - 4 / absScaleX, -hh - 4 / absScaleY, w + 8 / absScaleX, h + 8 / absScaleY);
     ctx.setLineDash([]);
 
     // Draw corner handles
-    const handleSize = 6;
+    const handleSize = 6 / (this.camera.zoom * Math.min(absScaleX, absScaleY));
     ctx.fillStyle = '#4a9eff';
     const corners = [
-      [-w / 2 - 4, -h / 2 - 4],
-      [w / 2 + 4, -h / 2 - 4],
-      [-w / 2 - 4, h / 2 + 4],
-      [w / 2 + 4, h / 2 + 4],
+      [-hw - 4 / absScaleX, -hh - 4 / absScaleY],
+      [hw + 4 / absScaleX, -hh - 4 / absScaleY],
+      [-hw - 4 / absScaleX, hh + 4 / absScaleY],
+      [hw + 4 / absScaleX, hh + 4 / absScaleY],
     ];
     for (const [cx, cy] of corners) {
       ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
@@ -243,6 +278,11 @@ export class Renderer2D {
 
     for (const entity of sorted) {
       this.renderEntity(entity);
+    }
+
+    // Render hitboxes on top
+    for (const entity of sorted) {
+      this.renderHitbox(entity);
     }
 
     // Draw selection on top
@@ -270,10 +310,12 @@ export class Renderer2D {
       const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
       if (!sprite) continue;
 
-      const world = this.getWorldTransform(entity);
+      const world = getWorldTransform(entity);
       const screenPos = this.worldToScreen(world.position);
-      const w = sprite.width * world.scaleX * this.camera.zoom;
-      const h = sprite.height * world.scaleY * this.camera.zoom;
+      const absSx = Math.abs(world.scaleX) || 0.001;
+      const absSy = Math.abs(world.scaleY) || 0.001;
+      const w = sprite.width * absSx * this.camera.zoom;
+      const h = sprite.height * absSy * this.camera.zoom;
 
       if (
         screenX >= screenPos.x - w / 2 &&

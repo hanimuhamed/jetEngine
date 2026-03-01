@@ -8,16 +8,52 @@ const SCRIPTING_TYPES = `
 declare const entity: {
   id: string;
   name: string;
+  tag: string;
+  getComponent(type: "Transform2D"): {
+    position: { x: number; y: number };
+    rotation: number;
+    scale: { x: number; y: number };
+    translate(dx: number, dy: number): void;
+  } | null;
+  getComponent(type: "RigidBody2D"): {
+    velocity: { x: number; y: number };
+    acceleration: { x: number; y: number };
+    mass: number;
+    gravityScale: number;
+    isKinematic: boolean;
+    drag: number;
+    bounciness: number;
+    applyForce(x: number, y: number): void;
+    setVelocity(x: number, y: number): void;
+  } | null;
+  getComponent(type: "Collider2D"): {
+    width: number;
+    height: number;
+    offset: { x: number; y: number };
+    isTrigger: boolean;
+    showHitbox: boolean;
+  } | null;
+  getComponent(type: "SpriteRenderer"): {
+    color: string;
+    shapeType: string;
+    width: number;
+    height: number;
+    visible: boolean;
+    layer: number;
+  } | null;
+  getComponent(type: "Camera2DComponent"): {
+    backgroundColor: string;
+    zoom: number;
+  } | null;
   getComponent(type: string): any;
-  addComponent(type: string): void;
+  applyForce(x: number, y: number): void;
   destroy(): void;
 };
 declare const transform: {
-  x: number;
-  y: number;
+  position: { x: number; y: number };
   rotation: number;
-  scaleX: number;
-  scaleY: number;
+  scale: { x: number; y: number };
+  translate(dx: number, dy: number): void;
 };
 declare const input: {
   isKeyDown(key: string): boolean;
@@ -33,9 +69,15 @@ declare const time: {
 declare const scene: {
   getEntityByName(name: string): typeof entity | null;
   getAllEntities(): (typeof entity)[];
+  spawn(prefabName: string, x: number, y: number): { id: string; name: string; tag: string } | null;
+  destroy(target: { id?: string; name?: string }): void;
+};
+declare const assets: {
+  spawn(prefabName: string, x: number, y: number): { id: string; name: string; tag: string } | null;
 };
 declare function onStart(): void;
 declare function onUpdate(deltaTime: number): void;
+declare function onCollision(other: { id: string; name: string; tag: string; isTrigger: boolean }): void;
 declare function onDestroy(): void;
 `;
 

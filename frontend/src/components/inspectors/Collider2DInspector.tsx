@@ -66,6 +66,15 @@ export function Collider2DInspector({ entityId }: { entityId: string }) {
           onChange={(e) => update(c => { c.isTrigger = e.target.checked; })}
         />
       </div>
+
+      <div className="field-group">
+        <label className="field-group-label">Show Hitbox</label>
+        <input
+          type="checkbox"
+          checked={collider.showHitbox}
+          onChange={(e) => update(c => { c.showHitbox = e.target.checked; })}
+        />
+      </div>
     </div>
   );
 }

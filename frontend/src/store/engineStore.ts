@@ -100,6 +100,10 @@ export interface EngineStore {
   addConsoleLog: (entry: ConsoleEntry) => void;
   clearConsoleLogs: () => void;
 
+  // Project name
+  projectName: string;
+  setProjectName: (name: string) => void;
+
   // Prefab editing mode
   editingPrefabId: string | null;
   editingPrefabEntity: Entity | null;
@@ -613,6 +617,9 @@ export const useEngineStore = create<EngineStore>((set, get) => {
       }));
     },
     clearConsoleLogs: () => set({ consoleLogs: [] }),
+
+    projectName: 'Untitled Project',
+    setProjectName: (name) => set({ projectName: name }),
 
     _tick: 0,
     syncEntities: () => {

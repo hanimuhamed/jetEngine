@@ -173,6 +173,8 @@ export class ScriptRunner {
           },
           get isTrigger() { return c.isTrigger; },
           set isTrigger(v: boolean) { c.isTrigger = v; },
+          get showHitbox() { return c.showHitbox; },
+          set showHitbox(v: boolean) { c.showHitbox = v; },
         };
       }
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import "./index.css";
 import Panel from "./components/Panel";
 import Hierarchy from "./components/Hierarchy";
@@ -10,22 +10,43 @@ import AssetPanel from "./components/AssetPanel";
 import ConsolePanel from "./components/ConsolePanel";
 import { useEngineStore } from "./store/engineStore";
 
+/** Parse a .jet filename into a display name: "newGame.jet" → "New Game" */
+function parseProjectName(filename: string): string {
+  // Strip extension
+  let base = filename.replace(/\.jet$/i, '');
+  // Replace underscores, hyphens with spaces
+  base = base.replace(/[_-]/g, ' ');
+  // Title case each word
+  base = base.replace(/\b\w/g, c => c.toUpperCase());
+  return base.trim() || 'Untitled Project';
+}
+
 export default function App() {
   const rootRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const topRowRef = useRef<HTMLDivElement>(null);
 
   const editingScriptEntityId = useEngineStore((s) => s.editingScriptEntityId);
+  const setEditingScript = useEngineStore((s) => s.setEditingScript);
   const editingPrefabId = useEngineStore((s) => s.editingPrefabId);
   const editingPrefabEntity = useEngineStore((s) => s.editingPrefabEntity);
   const savePrefab = useEngineStore((s) => s.savePrefab);
   const cancelPrefabEdit = useEngineStore((s) => s.cancelPrefabEdit);
   const assets = useEngineStore((s) => s.assets);
+  const saveScene = useEngineStore((s) => s.saveScene);
+  const loadScene = useEngineStore((s) => s.loadScene);
+  const projectName = useEngineStore((s) => s.projectName);
+  const setProjectName = useEngineStore((s) => s.setProjectName);
 
   // Get the prefab name for display
   const editingPrefabName = editingPrefabId
     ? assets.find(a => a.id === editingPrefabId)?.name ?? 'Prefab'
     : null;
+
+  // File menu state
+  const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Width of right panel (px)
   const [rightWidth, setRightWidth] = useState(280);
@@ -35,6 +56,50 @@ export default function App() {
   const [topHeight, setTopHeight] = useState(600);
   // Width of bottom-right console panel (px)
   const [bottomRightWidth, setBottomRightWidth] = useState(340);
+
+  // Close file menu when clicking outside
+  React.useEffect(() => {
+    if (!fileMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (fileMenuRef.current && !fileMenuRef.current.contains(e.target as Node)) {
+        setFileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [fileMenuOpen]);
+
+  const handleSave = useCallback(() => {
+    setFileMenuOpen(false);
+    const json = saveScene();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Use project name as default filename
+    const safeName = projectName.replace(/\s+/g, '_').toLowerCase();
+    a.download = `${safeName}.jet`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [saveScene, projectName]);
+
+  const handleLoad = useCallback(() => {
+    setFileMenuOpen(false);
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      loadScene(reader.result as string);
+      // Parse project name from filename
+      setProjectName(parseProjectName(file.name));
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [loadScene, setProjectName]);
 
   const startResize = (
     direction: "right" | "left" | "horizontal" | "bottomVertical",
@@ -98,97 +163,146 @@ export default function App() {
   return (
     <div className="app-root">
       <div className="top-bar">
-        <span className="top-bar-title">✈ jetEngine</span>
-        <Toolbar />
-      </div>
-
-      <div className="container" ref={rootRef}>
-        {/* LEFT + SCENE + ASSETS COLUMN */}
-        <div
-          className="left-middle-column"
-          ref={columnRef}
-          style={{ flex: 1 }}
-        >
-          {/* TOP ROW (HIERARCHY + SCENE) */}
-          <div
-            className="top-row"
-            ref={topRowRef}
-            style={{ height: `${topHeight}px` }}
+        {/* File dropdown menu */}
+        <div className="file-menu-wrapper" ref={fileMenuRef}>
+          <button
+            className="file-menu-trigger"
+            onClick={() => setFileMenuOpen(!fileMenuOpen)}
           >
-            <Panel
-              title={editingPrefabId ? "PREFAB" : "HIERARCHY"}
-              className="left"
-              style={{ width: `${leftWidth}px` }}
-            >
-              <Hierarchy />
-            </Panel>
-
-            <div
-              className="divider vertical"
-              onMouseDown={(e) => startResize("left", e)}
-            />
-
-            <Panel
-              title={editingPrefabId ? `SCENE — Editing Prefab: ${editingPrefabName}` : "SCENE"}
-              className="middle-top"
-              style={{ flex: 1 }}
-            >
-              {editingPrefabId && (
-                <div className="prefab-edit-bar">
-                  <span className="prefab-edit-bar-label">📦 Editing: {editingPrefabName}</span>
-                  <button className="prefab-edit-bar-btn save" onClick={savePrefab}>💾 Save</button>
-                  <button className="prefab-edit-bar-btn cancel" onClick={cancelPrefabEdit}>✕ Cancel</button>
-                </div>
-              )}
-              <SceneView />
-            </Panel>
-          </div>
-
-          {/* HORIZONTAL DIVIDER */}
-          <div
-            className="divider horizontal"
-            onMouseDown={(e) => startResize("horizontal", e)}
-          />
-
-          {/* BOTTOM (ASSETS/SCRIPT EDITOR + CONSOLE) */}
-          <div className="bottom-row">
-            <Panel
-              title={editingScriptEntityId ? "SCRIPT EDITOR" : "ASSETS"}
-              className="middle-bottom"
-            >
-              {editingScriptEntityId ? <ScriptEditor /> : <AssetPanel />}
-            </Panel>
-
-            <div
-              className="divider vertical"
-              onMouseDown={(e) => startResize("bottomVertical", e)}
-            />
-
-            <Panel
-              title="CONSOLE"
-              className="bottom-right"
-              style={{ width: `${bottomRightWidth}px` }}
-            >
-              <ConsolePanel />
-            </Panel>
-          </div>
+            File
+          </button>
+          {fileMenuOpen && (
+            <div className="file-menu-dropdown">
+              <div className="file-menu-item" onClick={handleSave}>
+                💾 Save Project
+              </div>
+              <div className="file-menu-item" onClick={handleLoad}>
+                📂 Load Project
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* VERTICAL DIVIDER FOR INSPECTOR */}
-        <div
-          className="divider vertical"
-          onMouseDown={(e) => startResize("right", e)}
-        />
+        <span className="top-bar-title">✈ jetEngine</span>
+        <span className="top-bar-project-name">{projectName}</span>
 
-        {/* RIGHT (INSPECTOR) */}
-        <Panel
-          title="INSPECTOR"
-          className="right"
-          style={{ width: `${rightWidth}px` }}
-        >
-          <Inspector />
-        </Panel>
+        <Toolbar />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".jet,.json"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
       </div>
+
+      {editingScriptEntityId ? (
+        /* ── Full-screen Script Editor + Console (75/25) ── */
+        <div className="script-fullscreen-container">
+          <Panel
+            title="SCRIPT EDITOR"
+            className="script-fullscreen-editor"
+            style={{ flex: 3 }}
+          >
+            <ScriptEditor />
+          </Panel>
+          <div className="divider vertical" />
+          <Panel
+            title="CONSOLE"
+            className="script-fullscreen-console"
+            style={{ flex: 1 }}
+          >
+            <ConsolePanel />
+          </Panel>
+        </div>
+      ) : (
+        <div className="container" ref={rootRef}>
+          {/* LEFT + SCENE + ASSETS COLUMN */}
+          <div
+            className="left-middle-column"
+            ref={columnRef}
+            style={{ flex: 1 }}
+          >
+            {/* TOP ROW (HIERARCHY + SCENE) */}
+            <div
+              className="top-row"
+              ref={topRowRef}
+              style={{ height: `${topHeight}px` }}
+            >
+              <Panel
+                title={editingPrefabId ? "PREFAB" : "HIERARCHY"}
+                className="left"
+                style={{ width: `${leftWidth}px` }}
+              >
+                <Hierarchy />
+              </Panel>
+
+              <div
+                className="divider vertical"
+                onMouseDown={(e) => startResize("left", e)}
+              />
+
+              <Panel
+                title={editingPrefabId ? `SCENE — Editing Prefab: ${editingPrefabName}` : "SCENE"}
+                className="middle-top"
+                style={{ flex: 1 }}
+              >
+                {editingPrefabId && (
+                  <div className="prefab-edit-bar">
+                    <span className="prefab-edit-bar-label">📦 Editing: {editingPrefabName}</span>
+                    <button className="prefab-edit-bar-btn save" onClick={savePrefab}>💾 Save</button>
+                    <button className="prefab-edit-bar-btn cancel" onClick={cancelPrefabEdit}>✕ Cancel</button>
+                  </div>
+                )}
+                <SceneView />
+              </Panel>
+            </div>
+
+            {/* HORIZONTAL DIVIDER */}
+            <div
+              className="divider horizontal"
+              onMouseDown={(e) => startResize("horizontal", e)}
+            />
+
+            {/* BOTTOM (ASSETS + CONSOLE) */}
+            <div className="bottom-row">
+              <Panel
+                title="ASSETS"
+                className="middle-bottom"
+              >
+                <AssetPanel />
+              </Panel>
+              <div
+                className="divider vertical"
+                onMouseDown={(e) => startResize("bottomVertical", e)}
+              />
+              <Panel
+                title="CONSOLE"
+                className="bottom-right"
+                style={{ width: `${bottomRightWidth}px` }}
+              >
+                <ConsolePanel />
+              </Panel>
+            </div>
+          </div>
+
+          {/* VERTICAL DIVIDER FOR INSPECTOR */}
+          <div
+            className="divider vertical"
+            onMouseDown={(e) => startResize("right", e)}
+          />
+
+          {/* RIGHT (INSPECTOR) */}
+          <Panel
+            title="INSPECTOR"
+            className="right"
+            style={{ width: `${rightWidth}px` }}
+          >
+            <Inspector />
+          </Panel>
+        </div>
+      )}
 
       <div className="footer">
         ✈ jetEngine v0.1.0 — 2D Game Engine

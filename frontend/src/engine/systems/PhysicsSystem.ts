@@ -4,6 +4,7 @@ import { Vec2 } from '../core/Math2D';
 import { Transform2D } from '../components/Transform2D';
 import { RigidBody2D } from '../components/RigidBody2D';
 import { Collider2D } from '../components/Collider2D';
+import { getWorldTransform } from '../core/WorldTransform';
 
 const GRAVITY = new Vec2(0, -400); // pixels/s² downward (Y-up convention)
 
@@ -21,22 +22,55 @@ interface AABB {
   maxY: number;
 }
 
+/**
+ * Compute AABB in world space, using the full parent hierarchy transform.
+ * This ensures child entities whose parent moves still have correct collision.
+ */
 function getAABB(entity: Entity): AABB | null {
-  const transform = entity.getComponent<Transform2D>('Transform2D');
   const collider = entity.getComponent<Collider2D>('Collider2D');
-  if (!transform || !collider) return null;
+  if (!collider) return null;
 
-  const hw = (collider.width * transform.scale.x) / 2;
-  const hh = (collider.height * transform.scale.y) / 2;
-  const cx = transform.position.x + collider.offset.x;
-  const cy = transform.position.y + collider.offset.y;
+  // Get world-space transform (includes parent hierarchy)
+  const world = getWorldTransform(entity);
 
-  return {
-    minX: cx - hw,
-    minY: cy - hh,
-    maxX: cx + hw,
-    maxY: cy + hh,
-  };
+  const absScaleX = Math.abs(world.scaleX);
+  const absScaleY = Math.abs(world.scaleY);
+
+  const hw = (collider.width * absScaleX) / 2;
+  const hh = (collider.height * absScaleY) / 2;
+
+  // Offset in world space: apply world rotation to the offset
+  const rad = (world.rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const offX = collider.offset.x * absScaleX;
+  const offY = collider.offset.y * absScaleY;
+  const worldOffX = offX * cos - offY * sin;
+  const worldOffY = offX * sin + offY * cos;
+
+  const cx = world.position.x + worldOffX;
+  const cy = world.position.y + worldOffY;
+
+  // For rotated colliders, compute the AABB of the rotated box
+  // The four corners of the local box at (cx, cy)
+  const corners = [
+    { x: -hw, y: -hh },
+    { x:  hw, y: -hh },
+    { x:  hw, y:  hh },
+    { x: -hw, y:  hh },
+  ];
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const corner of corners) {
+    const rx = corner.x * cos - corner.y * sin + cx;
+    const ry = corner.x * sin + corner.y * cos + cy;
+    if (rx < minX) minX = rx;
+    if (ry < minY) minY = ry;
+    if (rx > maxX) maxX = rx;
+    if (ry > maxY) maxY = ry;
+  }
+
+  return { minX, minY, maxX, maxY };
 }
 
 function aabbOverlap(a: AABB, b: AABB): boolean {
@@ -110,13 +144,19 @@ export class PhysicsSystem {
     const tA = a.getComponent<Transform2D>('Transform2D')!;
     const tB = b.getComponent<Transform2D>('Transform2D')!;
 
+    // Use world-space AABB centers for direction
+    const centerAX = (aabb_a.minX + aabb_a.maxX) / 2;
+    const centerAY = (aabb_a.minY + aabb_a.maxY) / 2;
+    const centerBX = (aabb_b.minX + aabb_b.maxX) / 2;
+    const centerBY = (aabb_b.minY + aabb_b.maxY) / 2;
+
     // Calculate overlap
     const overlapX = Math.min(aabb_a.maxX - aabb_b.minX, aabb_b.maxX - aabb_a.minX);
     const overlapY = Math.min(aabb_a.maxY - aabb_b.minY, aabb_b.maxY - aabb_a.minY);
 
     if (overlapX < overlapY) {
       // Resolve horizontally
-      const sign = tA.position.x < tB.position.x ? -1 : 1;
+      const sign = centerAX < centerBX ? -1 : 1;
       if (rbA && !rbA.isKinematic) {
         tA.position.x += (overlapX / 2) * sign;
         rbA.velocity.x *= -rbA.bounciness;
@@ -127,7 +167,7 @@ export class PhysicsSystem {
       }
     } else {
       // Resolve vertically
-      const sign = tA.position.y < tB.position.y ? -1 : 1;
+      const sign = centerAY < centerBY ? -1 : 1;
       if (rbA && !rbA.isKinematic) {
         tA.position.y += (overlapY / 2) * sign;
         rbA.velocity.y *= -rbA.bounciness;
