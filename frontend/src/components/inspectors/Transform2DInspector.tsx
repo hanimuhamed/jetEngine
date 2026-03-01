@@ -2,7 +2,7 @@
 import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { Transform2D } from '../../engine/components/Transform2D';
-import DraggableNumber from '../../io/draggableNumber';
+import DraggableNumber from '../DraggableNumber';
 import type { Entity } from '../../engine/core/Entity';
 
 /** Find entity in nested tree */

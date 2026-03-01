@@ -1,5 +1,11 @@
 import { useState, useRef, useCallback } from "react";
-import type { DraggableNumberProps } from "../types";
+
+type DraggableNumberProps = {
+  value: number;
+  onChange: (value: number) => void;
+  label?: string;
+  min?: number;
+};
 
 function DraggableNumber({ value, onChange, label, min }: DraggableNumberProps) {
   const [dragging, setDragging] = useState(false);

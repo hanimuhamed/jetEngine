@@ -1,6 +1,12 @@
-import type { PanelProps } from "../types";
+type PanelProps = {
+  title: string;
+  children?: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+  headerRight?: React.ReactNode;
+};
 
-function Panel({ title, children, style, className = "", headerRight }: PanelProps) {
+function Panel({ title, children, style, className, headerRight }: PanelProps) {
   return (
     <div className={`panel ${className}`} style={style}>
       <div className="panel-header">

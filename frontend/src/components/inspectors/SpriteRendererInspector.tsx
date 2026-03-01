@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { SpriteRenderer } from '../../engine/components/SpriteRenderer';
 import type { ShapeType } from '../../engine/components/SpriteRenderer';
-import DraggableNumber from '../../io/draggableNumber';
+import DraggableNumber from '../DraggableNumber';
 import type { Entity } from '../../engine/core/Entity';
 
 const SHAPE_OPTIONS: ShapeType[] = ['rectangle', 'circle', 'triangle', 'sprite'];
