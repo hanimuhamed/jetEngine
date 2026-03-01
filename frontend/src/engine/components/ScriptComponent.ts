@@ -4,8 +4,36 @@ import { Component } from '../core/Component';
 export const DEFAULT_SCRIPT_TEMPLATE = (entityName: string) => `// Script for entity: ${entityName}
 // Available globals: entity, transform, input, time, scene, assets, console
 //
-// entity.tag          — get/set the entity tag
+// ── Transform ──
+// transform.position.x / transform.position.y
+// transform.rotation
+// transform.scale.x / transform.scale.y
+// transform.translate(dx, dy)
+//
+// ── Entity ──
+// entity.tag — get/set the entity tag
 // entity.applyForce(x, y) — apply a force (needs RigidBody2D)
+// entity.getComponent("RigidBody2D") — returns component proxy
+// entity.getComponent("Collider2D")
+// entity.getComponent("SpriteRenderer")
+// entity.destroy()
+//
+// ── RigidBody2D proxy ──
+// rb = entity.getComponent("RigidBody2D")
+// rb.velocity.x / rb.velocity.y
+// rb.setVelocity(x, y)
+// rb.applyForce(x, y)
+// rb.mass, rb.gravityScale, rb.drag, rb.bounciness, rb.isKinematic
+//
+// ── Collider2D proxy ──
+// col = entity.getComponent("Collider2D")
+// col.width, col.height, col.offset.x, col.offset.y, col.isTrigger
+//
+// ── SpriteRenderer proxy ──
+// sr = entity.getComponent("SpriteRenderer")
+// sr.color, sr.width, sr.height, sr.visible, sr.layer, sr.shapeType
+//
+// ── Scene / Assets ──
 // assets.spawn("PrefabName", x, y) — spawn a prefab at position
 // scene.destroy({ name: "Enemy" }) — destroy an entity
 //
@@ -17,7 +45,7 @@ function onStart() {
 
 function onUpdate(deltaTime) {
   // Called every frame
-  // transform.x += 100 * deltaTime;
+  // transform.position.x += 100 * deltaTime;
 }
 
 function onCollision(other) {

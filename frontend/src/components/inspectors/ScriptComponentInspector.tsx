@@ -2,25 +2,35 @@
 import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { ScriptComponent } from '../../engine/components/ScriptComponent';
+import type { Entity } from '../../engine/core/Entity';
+
+/** Find entity in nested tree */
+function findInTree(list: Entity[], id: string): Entity | undefined {
+  for (const e of list) {
+    if (e.id === id) return e;
+    const found = findInTree(e.children, id);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function findEntityAnywhere(entities: Entity[], prefabEntity: Entity | null, id: string): Entity | undefined {
+  if (prefabEntity) {
+    const found = findInTree([prefabEntity], id);
+    if (found) return found;
+  }
+  return findInTree(entities, id);
+}
 
 export function ScriptComponentInspector({ entityId, componentId }: { entityId: string; componentId: string }) {
   const entities = useEngineStore(s => s.entities);
+  const editingPrefabEntity = useEngineStore(s => s.editingPrefabEntity);
   const setEditingScript = useEngineStore(s => s.setEditingScript);
   const updateComponentById = useEngineStore(s => s.updateComponentById);
   const _tick = useEngineStore(s => s._tick);
   void _tick;
 
-  // Find entity in tree
-  const findEntity = (list: typeof entities, id: string): typeof entities[number] | undefined => {
-    for (const e of list) {
-      if (e.id === id) return e;
-      const found = findEntity(e.children, id);
-      if (found) return found;
-    }
-    return undefined;
-  };
-
-  const entity = findEntity(entities, entityId);
+  const entity = findEntityAnywhere(entities, editingPrefabEntity, entityId);
   const script = entity?.getComponentById<ScriptComponent>(componentId);
   if (!script) return null;
 

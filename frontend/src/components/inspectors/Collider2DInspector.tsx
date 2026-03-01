@@ -15,13 +15,22 @@ function findInTree(list: Entity[], id: string): Entity | undefined {
   return undefined;
 }
 
+function findEntityAnywhere(entities: Entity[], prefabEntity: Entity | null, id: string): Entity | undefined {
+  if (prefabEntity) {
+    const found = findInTree([prefabEntity], id);
+    if (found) return found;
+  }
+  return findInTree(entities, id);
+}
+
 export function Collider2DInspector({ entityId }: { entityId: string }) {
   const updateComponent = useEngineStore(s => s.updateComponent);
   const entities = useEngineStore(s => s.entities);
+  const editingPrefabEntity = useEngineStore(s => s.editingPrefabEntity);
   const _tick = useEngineStore(s => s._tick);
   void _tick;
 
-  const entity = findInTree(entities, entityId);
+  const entity = findEntityAnywhere(entities, editingPrefabEntity, entityId);
   const collider = entity?.getComponent<Collider2D>('Collider2D');
   if (!collider) return null;
 

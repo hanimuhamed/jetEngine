@@ -4,6 +4,9 @@ import { InputManager } from '../core/InputManager';
 import { Vec2 } from '../core/Math2D';
 import { Transform2D } from '../components/Transform2D';
 import { RigidBody2D } from '../components/RigidBody2D';
+import { Collider2D } from '../components/Collider2D';
+import { SpriteRenderer } from '../components/SpriteRenderer';
+import { Camera2DComponent } from '../components/Camera2DComponent';
 import { ScriptComponent } from '../components/ScriptComponent';
 import type { CollisionEvent } from '../systems/PhysicsSystem';
 
@@ -98,33 +101,146 @@ export class ScriptRunner {
     try {
       const transform = entity.getComponent<Transform2D>('Transform2D');
 
-      // Build the transform proxy that reads/writes to the actual component
-      const transformProxy = transform
-        ? {
-            get x() { return transform.position.x; },
-            set x(v: number) { transform.position.x = v; },
-            get y() { return transform.position.y; },
-            set y(v: number) { transform.position.y = v; },
-            get rotation() { return transform.rotation; },
-            set rotation(v: number) { transform.rotation = v; },
-            get scaleX() { return transform.scale.x; },
-            set scaleX(v: number) { transform.scale.x = v; },
-            get scaleY() { return transform.scale.y; },
-            set scaleY(v: number) { transform.scale.y = v; },
-          }
-        : { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 };
+      const sandboxConsole = createSandboxConsole();
+
+      // ── Component proxy builders ────────────────────────
+      // Valid component type names for getComponent()
+      const VALID_COMPONENT_TYPES = [
+        'Transform2D', 'RigidBody2D', 'Collider2D',
+        'SpriteRenderer', 'Camera2DComponent', 'ScriptComponent',
+      ];
+
+      function makeTransformProxy(t: Transform2D) {
+        return {
+          position: {
+            get x() { return t.position.x; },
+            set x(v: number) { t.position.x = v; },
+            get y() { return t.position.y; },
+            set y(v: number) { t.position.y = v; },
+          },
+          get rotation() { return t.rotation; },
+          set rotation(v: number) { t.rotation = v; },
+          scale: {
+            get x() { return t.scale.x; },
+            set x(v: number) { t.scale.x = v; },
+            get y() { return t.scale.y; },
+            set y(v: number) { t.scale.y = v; },
+          },
+          translate(dx: number, dy: number) { t.translate(dx, dy); },
+        };
+      }
+
+      function makeRigidBodyProxy(rb: RigidBody2D) {
+        return {
+          velocity: {
+            get x() { return rb.velocity.x; },
+            set x(v: number) { rb.velocity.x = v; },
+            get y() { return rb.velocity.y; },
+            set y(v: number) { rb.velocity.y = v; },
+          },
+          acceleration: {
+            get x() { return rb.acceleration.x; },
+            set x(v: number) { rb.acceleration.x = v; },
+            get y() { return rb.acceleration.y; },
+            set y(v: number) { rb.acceleration.y = v; },
+          },
+          get mass() { return rb.mass; },
+          set mass(v: number) { rb.mass = v; },
+          get gravityScale() { return rb.gravityScale; },
+          set gravityScale(v: number) { rb.gravityScale = v; },
+          get isKinematic() { return rb.isKinematic; },
+          set isKinematic(v: boolean) { rb.isKinematic = v; },
+          get drag() { return rb.drag; },
+          set drag(v: number) { rb.drag = v; },
+          get bounciness() { return rb.bounciness; },
+          set bounciness(v: number) { rb.bounciness = v; },
+          applyForce(x: number, y: number) { rb.applyForce(new Vec2(x, y)); },
+          setVelocity(x: number, y: number) { rb.velocity = new Vec2(x, y); },
+        };
+      }
+
+      function makeColliderProxy(c: Collider2D) {
+        return {
+          get width() { return c.width; },
+          set width(v: number) { c.width = v; },
+          get height() { return c.height; },
+          set height(v: number) { c.height = v; },
+          offset: {
+            get x() { return c.offset.x; },
+            set x(v: number) { c.offset.x = v; },
+            get y() { return c.offset.y; },
+            set y(v: number) { c.offset.y = v; },
+          },
+          get isTrigger() { return c.isTrigger; },
+          set isTrigger(v: boolean) { c.isTrigger = v; },
+        };
+      }
+
+      function makeSpriteRendererProxy(sr: SpriteRenderer) {
+        return {
+          get color() { return sr.color; },
+          set color(v: string) { sr.color = v; },
+          get shapeType() { return sr.shapeType; },
+          set shapeType(v: string) { sr.shapeType = v as SpriteRenderer['shapeType']; },
+          get width() { return sr.width; },
+          set width(v: number) { sr.width = v; },
+          get height() { return sr.height; },
+          set height(v: number) { sr.height = v; },
+          get visible() { return sr.visible; },
+          set visible(v: boolean) { sr.visible = v; },
+          get layer() { return sr.layer; },
+          set layer(v: number) { sr.layer = v; },
+        };
+      }
+
+      function makeCameraProxy(cam: Camera2DComponent) {
+        return {
+          get backgroundColor() { return cam.backgroundColor; },
+          set backgroundColor(v: string) { cam.backgroundColor = v; },
+          get zoom() { return cam.zoom; },
+          set zoom(v: number) { cam.zoom = v; },
+        };
+      }
+
+      function makeComponentProxy(comp: unknown, type: string): unknown {
+        if (type === 'Transform2D') return makeTransformProxy(comp as Transform2D);
+        if (type === 'RigidBody2D') return makeRigidBodyProxy(comp as RigidBody2D);
+        if (type === 'Collider2D') return makeColliderProxy(comp as Collider2D);
+        if (type === 'SpriteRenderer') return makeSpriteRendererProxy(comp as SpriteRenderer);
+        if (type === 'Camera2DComponent') return makeCameraProxy(comp as Camera2DComponent);
+        return null;
+      }
+
+      // ── Build the transform proxy (backward compat + new API) ──
+      const transformProxy = transform ? makeTransformProxy(transform) : {
+        position: { x: 0, y: 0 },
+        rotation: 0,
+        scale: { x: 1, y: 1 },
+        translate() {},
+      };
 
       const entityProxy = {
         id: entity.id,
         name: entity.name,
         get tag() { return entity.tag; },
         set tag(v: string) { entity.tag = v; },
-        getComponent: (type: string) => entity.getComponent(type),
-        addComponent: () => { /* not allowed at runtime */ },
+        getComponent: (type: string) => {
+          if (!VALID_COMPONENT_TYPES.includes(type)) {
+            sandboxConsole.error(`[getComponent] Unknown component type: "${type}". Valid types: ${VALID_COMPONENT_TYPES.join(', ')}`);
+            return null;
+          }
+          const comp = entity.getComponent(type);
+          if (!comp) {
+            sandboxConsole.error(`[getComponent] Entity "${entity.name}" does not have component "${type}".`);
+            return null;
+          }
+          return makeComponentProxy(comp, type);
+        },
         destroy: () => sceneProxy.destroyEntity(entity),
         applyForce: (x: number, y: number) => {
           const rb = entity.getComponent<RigidBody2D>('RigidBody2D');
           if (rb) rb.applyForce(new Vec2(x, y));
+          else sandboxConsole.error(`[applyForce] Entity "${entity.name}" does not have RigidBody2D.`);
         },
       };
 
@@ -165,8 +281,6 @@ export class ScriptRunner {
           return spawned ? { id: spawned.id, name: spawned.name, tag: spawned.tag } : null;
         },
       };
-
-      const sandboxConsole = createSandboxConsole();
 
       // Use Function constructor for sandboxing (not eval)
       // Wrap script in an IIFE that captures function declarations properly

@@ -514,12 +514,46 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     },
 
     saveScene: () => {
-      const { scene } = get();
-      return SceneSerializer.toJSON(scene);
+      const { scene, assets } = get();
+      const sceneData = SceneSerializer.serialize(scene);
+      // Include assets (prefabs are fully serialized; images use URLs which may be blob URLs)
+      const saveData = {
+        scene: sceneData,
+        assets: assets.map(a => ({
+          id: a.id,
+          name: a.name,
+          url: a.url,
+          type: a.type,
+          prefabJson: a.prefabJson,
+        })),
+      };
+      return JSON.stringify(saveData, null, 2);
     },
 
     loadScene: (json) => {
-      const loaded = SceneSerializer.fromJSON(json);
+      const parsed = JSON.parse(json);
+
+      // Support both old format (just scene) and new format (scene + assets)
+      let sceneData: ReturnType<typeof SceneSerializer.serialize>;
+      let loadedAssets: Asset[] = [];
+      if (parsed.scene && parsed.scene.name !== undefined) {
+        // New format
+        sceneData = parsed.scene;
+        if (Array.isArray(parsed.assets)) {
+          loadedAssets = parsed.assets.map((a: Record<string, unknown>) => ({
+            id: (a.id as string) ?? uuidv4(),
+            name: (a.name as string) ?? 'Unknown',
+            url: (a.url as string) ?? '',
+            type: (a.type as string) ?? 'image',
+            prefabJson: a.prefabJson as string | undefined,
+          }));
+        }
+      } else {
+        // Old format: raw scene data
+        sceneData = parsed;
+      }
+
+      const loaded = SceneSerializer.deserialize(sceneData);
       const { gameLoop } = get();
       if (gameLoop) {
         gameLoop.stop();
@@ -549,6 +583,7 @@ export const useEngineStore = create<EngineStore>((set, get) => {
         selectedEntityId: null,
         engineState: 'EDITING',
         cameraEntityId: cameraEntity.id,
+        assets: loadedAssets,
       });
     },
 
