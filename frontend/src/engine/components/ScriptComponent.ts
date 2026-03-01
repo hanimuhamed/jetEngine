@@ -61,11 +61,14 @@ function onDestroy() {
 export class ScriptComponent extends Component {
   public scriptName: string;
   public scriptSource: string;
+  /** If set, this script uses a script asset by name instead of inline source */
+  public scriptAssetName: string;
 
   constructor(scriptName: string = 'NewScript', scriptSource?: string) {
     super('ScriptComponent');
     this.scriptName = scriptName;
     this.scriptSource = scriptSource ?? DEFAULT_SCRIPT_TEMPLATE(scriptName);
+    this.scriptAssetName = '';
   }
 
   serialize(): Record<string, unknown> {
@@ -73,11 +76,13 @@ export class ScriptComponent extends Component {
       type: this.type,
       scriptName: this.scriptName,
       scriptSource: this.scriptSource,
+      scriptAssetName: this.scriptAssetName,
     };
   }
 
   deserialize(data: Record<string, unknown>): void {
     this.scriptName = (data.scriptName as string) ?? 'NewScript';
     this.scriptSource = (data.scriptSource as string) ?? '';
+    this.scriptAssetName = (data.scriptAssetName as string) ?? '';
   }
 }

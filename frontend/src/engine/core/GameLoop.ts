@@ -40,6 +40,9 @@ export class GameLoop {
   /** Prefab JSON store — set from the engine store before play */
   public prefabs: Map<string, string> = new Map();
 
+  /** Script asset sources — name → source. Set from the engine store before play */
+  public scriptAssets: Map<string, string> = new Map();
+
   /** Entities queued for destruction — processed at end of frame */
   private destroyQueue: Entity[] = [];
 
@@ -97,6 +100,7 @@ export class GameLoop {
           this.destroyQueue.push(entity);
         },
       };
+      this.scriptRunner.scriptAssets = this.scriptAssets;
       this.scriptRunner.startAll(
         allEntities,
         this.inputManager,

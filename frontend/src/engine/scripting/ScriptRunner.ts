@@ -91,6 +91,9 @@ export class ScriptRunner {
   private _time: TimeInfo | null = null;
   private _sceneProxy: SceneProxy | null = null;
 
+  /** Script asset sources — name → source code. Set before startAll(). */
+  public scriptAssets: Map<string, string> = new Map();
+
   compileScript(
     entity: Entity,
     script: ScriptComponent,
@@ -100,6 +103,12 @@ export class ScriptRunner {
   ): CompiledScript | null {
     try {
       const transform = entity.getComponent<Transform2D>('Transform2D');
+
+      // Resolve script source: if script references a script asset, use asset source
+      let scriptSource = script.scriptSource;
+      if (script.scriptAssetName && this.scriptAssets.has(script.scriptAssetName)) {
+        scriptSource = this.scriptAssets.get(script.scriptAssetName)!;
+      }
 
       const sandboxConsole = createSandboxConsole();
 
@@ -165,6 +174,10 @@ export class ScriptRunner {
           set width(v: number) { c.width = v; },
           get height() { return c.height; },
           set height(v: number) { c.height = v; },
+          get radius() { return c.radius; },
+          set radius(v: number) { c.radius = v; },
+          get shape() { return c.shape; },
+          set shape(v: string) { c.shape = v as Collider2D['shape']; },
           offset: {
             get x() { return c.offset.x; },
             set x(v: number) { c.offset.x = v; },
@@ -297,7 +310,7 @@ export class ScriptRunner {
         `
         var __onStart, __onUpdate, __onDestroy, __onCollision;
         (function() {
-          ${script.scriptSource}
+          ${scriptSource}
 
           if (typeof onStart === 'function') __onStart = onStart;
           if (typeof onUpdate === 'function') __onUpdate = onUpdate;

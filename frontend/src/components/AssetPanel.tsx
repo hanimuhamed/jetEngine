@@ -1,19 +1,32 @@
 // components/AssetPanel.tsx
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useEngineStore } from '../store/engineStore';
 import { SpriteRenderer } from '../engine/components/SpriteRenderer';
+
+/** Convert a File to a base64 data URL */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 function AssetPanel() {
   const assets = useEngineStore(s => s.assets);
   const addAsset = useEngineStore(s => s.addAsset);
   const addPrefabAsset = useEngineStore(s => s.addPrefabAsset);
+  const addScriptAsset = useEngineStore(s => s.addScriptAsset);
   const removeAsset = useEngineStore(s => s.removeAsset);
+  const updateScriptAsset = useEngineStore(s => s.updateScriptAsset);
   const selectedEntityId = useEngineStore(s => s.selectedEntityId);
   const updateComponent = useEngineStore(s => s.updateComponent);
   const startEditingPrefab = useEngineStore(s => s.startEditingPrefab);
   const engineState = useEngineStore(s => s.engineState);
+  const scriptFileRef = useRef<HTMLInputElement>(null);
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -21,10 +34,8 @@ function AssetPanel() {
     const entityJson = e.dataTransfer.getData('application/jet-entity-json');
     const entityName = e.dataTransfer.getData('application/jet-entity-name');
     if (entityJson && entityName) {
-      // Check if prefab with this name already exists
       const existing = assets.find(a => a.type === 'prefab' && a.name === entityName);
       if (existing) {
-        // Update existing prefab — remove old, add new
         removeAsset(existing.id);
         addPrefabAsset(entityName, entityJson);
       } else {
@@ -33,16 +44,22 @@ function AssetPanel() {
       return;
     }
 
-    // Otherwise, handle image file drops
+    // Handle file drops (images + script files)
     const files = e.dataTransfer.files;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.type.startsWith('image/')) {
-        const url = URL.createObjectURL(file);
-        addAsset(file.name, url);
+        // Convert to base64 for save/load portability
+        const base64 = await fileToBase64(file);
+        addAsset(file.name, base64, base64);
+      } else if (file.name.endsWith('.js') || file.name.endsWith('.ts') || file.name.endsWith('.txt')) {
+        // Script file
+        const text = await file.text();
+        const name = file.name.replace(/\.(js|ts|txt)$/, '');
+        addScriptAsset(name, text);
       }
     }
-  }, [addAsset, addPrefabAsset, removeAsset, assets]);
+  }, [addAsset, addPrefabAsset, addScriptAsset, removeAsset, assets]);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -51,10 +68,13 @@ function AssetPanel() {
 
   const handleAssetClick = useCallback((asset: typeof assets[number]) => {
     if (asset.type === 'prefab') {
-      // Click prefab → enter prefab editing mode (only in EDITING state)
       if (engineState === 'EDITING') {
         startEditingPrefab(asset.id);
       }
+      return;
+    }
+    if (asset.type === 'script') {
+      // Script assets aren't clickable to assign — they're referenced by name
       return;
     }
     if (!selectedEntityId) return;
@@ -73,8 +93,29 @@ function AssetPanel() {
     e.dataTransfer.effectAllowed = 'copy';
   }, []);
 
+  const handleAddScriptClick = useCallback(() => {
+    const name = prompt('Script asset name:', 'NewScript');
+    if (!name) return;
+    const template = `// Script asset: ${name}\n// Entities can reference this script by name.\n\nfunction onStart() {\n  // Called once when the scene starts\n}\n\nfunction onUpdate(deltaTime) {\n  // Called every frame\n}\n\nfunction onCollision(other) {\n  // Called on collision\n}\n\nfunction onDestroy() {\n  // Called when entity is destroyed\n}\n`;
+    addScriptAsset(name, template);
+  }, [addScriptAsset]);
+
+  const handleImportScriptFile = useCallback(() => {
+    scriptFileRef.current?.click();
+  }, []);
+
+  const handleScriptFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const name = file.name.replace(/\.(js|ts|txt)$/, '');
+    addScriptAsset(name, text);
+    e.target.value = '';
+  }, [addScriptAsset]);
+
   const imageAssets = assets.filter(a => a.type === 'image');
   const prefabAssets = assets.filter(a => a.type === 'prefab');
+  const scriptAssets = assets.filter(a => a.type === 'script');
 
   return (
     <div
@@ -82,10 +123,20 @@ function AssetPanel() {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
+      <input
+        ref={scriptFileRef}
+        type="file"
+        accept=".js,.ts,.txt"
+        style={{ display: 'none' }}
+        onChange={handleScriptFileChange}
+      />
       {assets.length === 0 ? (
         <div className="asset-panel-empty">
-          Drop image files here to import assets<br/>
+          Drop image/script files here to import assets<br/>
           or drag entities from Hierarchy to create prefabs
+          <div style={{ marginTop: 8 }}>
+            <button className="inspector-add-point-btn" onClick={handleAddScriptClick}>+ New Script Asset</button>
+          </div>
         </div>
       ) : (
         <div className="asset-sections">
@@ -119,6 +170,34 @@ function AssetPanel() {
               </div>
             </div>
           )}
+          {scriptAssets.length > 0 && (
+            <div className="asset-section">
+              <div className="asset-section-title">Scripts</div>
+              <div className="asset-grid">
+                {scriptAssets.map(asset => (
+                  <div
+                    key={asset.id}
+                    className="asset-item script-item"
+                    title={`Script: ${asset.name}\nEntities reference this by name in ScriptComponent`}
+                  >
+                    <div className="prefab-icon">📜</div>
+                    <span className="asset-name">{asset.name}</span>
+                    <button
+                      className="asset-remove-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeAsset(asset.id);
+                      }}
+                      title="Remove script"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button className="inspector-add-point-btn" style={{ marginTop: 4, marginLeft: 8 }} onClick={handleAddScriptClick}>+ New Script</button>
+            </div>
+          )}
           {imageAssets.length > 0 && (
             <div className="asset-section">
               <div className="asset-section-title">Images</div>
@@ -145,6 +224,11 @@ function AssetPanel() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+          {scriptAssets.length === 0 && (
+            <div style={{ padding: '4px 8px' }}>
+              <button className="inspector-add-point-btn" onClick={handleAddScriptClick}>+ New Script Asset</button>
             </div>
           )}
         </div>

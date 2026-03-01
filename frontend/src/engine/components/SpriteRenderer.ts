@@ -1,7 +1,8 @@
 // engine/components/SpriteRenderer.ts
 import { Component } from '../core/Component';
+import { Vec2 } from '../core/Math2D';
 
-export type ShapeType = 'rectangle' | 'circle' | 'triangle' | 'sprite';
+export type ShapeType = 'rectangle' | 'circle' | 'triangle' | 'polygon' | 'sprite';
 
 export class SpriteRenderer extends Component {
   public color: string;
@@ -11,6 +12,8 @@ export class SpriteRenderer extends Component {
   public visible: boolean;
   public layer: number;
   public spriteUrl: string;
+  /** Polygon points (local space) for polygon shape rendering */
+  public polygonPoints: Vec2[];
   private _loadedImage: HTMLImageElement | null = null;
   private _imageLoaded: boolean = false;
 
@@ -28,6 +31,7 @@ export class SpriteRenderer extends Component {
     this.visible = true;
     this.layer = 0;
     this.spriteUrl = '';
+    this.polygonPoints = [];
   }
 
   loadImage(url: string): void {
@@ -59,6 +63,7 @@ export class SpriteRenderer extends Component {
       visible: this.visible,
       layer: this.layer,
       spriteUrl: this.spriteUrl,
+      polygonPoints: this.polygonPoints.map(p => p.toPlain()),
     };
   }
 
@@ -72,6 +77,10 @@ export class SpriteRenderer extends Component {
     const url = data.spriteUrl as string;
     if (url) {
       this.loadImage(url);
+    }
+    const pts = data.polygonPoints as { x: number; y: number }[];
+    if (Array.isArray(pts)) {
+      this.polygonPoints = pts.map(p => Vec2.fromPlain(p));
     }
   }
 }

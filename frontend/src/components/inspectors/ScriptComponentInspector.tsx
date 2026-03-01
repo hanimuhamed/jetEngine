@@ -27,6 +27,7 @@ export function ScriptComponentInspector({ entityId, componentId }: { entityId: 
   const editingPrefabEntity = useEngineStore(s => s.editingPrefabEntity);
   const setEditingScript = useEngineStore(s => s.setEditingScript);
   const updateComponentById = useEngineStore(s => s.updateComponentById);
+  const assets = useEngineStore(s => s.assets);
   const _tick = useEngineStore(s => s._tick);
   void _tick;
 
@@ -34,11 +35,27 @@ export function ScriptComponentInspector({ entityId, componentId }: { entityId: 
   const script = entity?.getComponentById<ScriptComponent>(componentId);
   if (!script) return null;
 
+  const scriptAssets = assets.filter(a => a.type === 'script');
+
   const handleRename = useCallback((newName: string) => {
     updateComponentById(entityId, componentId, (comp) => {
       (comp as ScriptComponent).scriptName = newName;
     });
   }, [entityId, componentId, updateComponentById]);
+
+  const handleAssetChange = useCallback((assetName: string) => {
+    updateComponentById(entityId, componentId, (comp) => {
+      const sc = comp as ScriptComponent;
+      sc.scriptAssetName = assetName;
+      // If linking to an asset, load its source
+      if (assetName) {
+        const asset = assets.find(a => a.type === 'script' && a.name === assetName);
+        if (asset && asset.scriptSource) {
+          sc.scriptSource = asset.scriptSource;
+        }
+      }
+    });
+  }, [entityId, componentId, updateComponentById, assets]);
 
   return (
     <div className="inspector-fields">
@@ -51,6 +68,23 @@ export function ScriptComponentInspector({ entityId, componentId }: { entityId: 
           onChange={(e) => handleRename(e.target.value)}
         />
       </div>
+
+      {scriptAssets.length > 0 && (
+        <div className="field-group">
+          <label className="field-group-label">Script Asset</label>
+          <select
+            className="inspector-select"
+            value={script.scriptAssetName}
+            onChange={(e) => handleAssetChange(e.target.value)}
+          >
+            <option value="">(Inline Script)</option>
+            {scriptAssets.map(a => (
+              <option key={a.id} value={a.name}>{a.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <button
         className="inspector-open-script-btn"
         onClick={() => setEditingScript(entityId, componentId)}

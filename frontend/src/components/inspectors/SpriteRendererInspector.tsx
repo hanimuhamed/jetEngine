@@ -3,10 +3,11 @@ import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
 import { SpriteRenderer } from '../../engine/components/SpriteRenderer';
 import type { ShapeType } from '../../engine/components/SpriteRenderer';
+import { Vec2 } from '../../engine/core/Math2D';
 import DraggableNumber from '../DraggableNumber';
 import type { Entity } from '../../engine/core/Entity';
 
-const SHAPE_OPTIONS: ShapeType[] = ['rectangle', 'circle', 'triangle', 'sprite'];
+const SHAPE_OPTIONS: ShapeType[] = ['rectangle', 'circle', 'triangle', 'polygon', 'sprite'];
 
 /** Find entity in nested tree */
 function findInTree(list: Entity[], id: string): Entity | undefined {
@@ -42,6 +43,29 @@ export function SpriteRendererInspector({ entityId }: { entityId: string }) {
       updater(comp as SpriteRenderer);
     });
   }, [entityId, updateComponent]);
+
+  const addPoint = () => {
+    update(s => {
+      s.polygonPoints = [...s.polygonPoints, new Vec2(0, 0)];
+    });
+  };
+
+  const removePoint = (idx: number) => {
+    update(s => {
+      s.polygonPoints = s.polygonPoints.filter((_, i) => i !== idx);
+    });
+  };
+
+  const updatePoint = (idx: number, axis: 'x' | 'y', val: number) => {
+    update(s => {
+      const pts = [...s.polygonPoints];
+      pts[idx] = new Vec2(
+        axis === 'x' ? val : pts[idx].x,
+        axis === 'y' ? val : pts[idx].y
+      );
+      s.polygonPoints = pts;
+    });
+  };
 
   return (
     <div className="inspector-fields">
@@ -83,6 +107,26 @@ export function SpriteRendererInspector({ entityId }: { entityId: string }) {
           <DraggableNumber label="H" value={sprite.height} onChange={(v) => update(s => { s.height = v; })} />
         </div>
       </div>
+
+      {sprite.shapeType === 'polygon' && (
+        <div className="field-group">
+          <label className="field-group-label">Polygon Points</label>
+          {sprite.polygonPoints.map((pt, idx) => (
+            <div key={idx} className="field-row" style={{ marginBottom: 4 }}>
+              <DraggableNumber label="X" value={pt.x} onChange={(v) => updatePoint(idx, 'x', v)} />
+              <DraggableNumber label="Y" value={pt.y} onChange={(v) => updatePoint(idx, 'y', v)} />
+              <button
+                className="inspector-remove-point-btn"
+                onClick={() => removePoint(idx)}
+                title="Remove point"
+              >✕</button>
+            </div>
+          ))}
+          <button className="inspector-add-point-btn" onClick={addPoint}>
+            + Add Point
+          </button>
+        </div>
+      )}
 
       <div className="field-group">
         <label className="field-group-label">Layer</label>

@@ -10,10 +10,16 @@ import AssetPanel from "./components/AssetPanel";
 import ConsolePanel from "./components/ConsolePanel";
 import { useEngineStore } from "./store/engineStore";
 
-/** Parse a .jet filename into a display name: "newGame.jet" → "New Game" */
+/** Parse a .jet filename into a display name:
+ *  "newGame.jet" → "New Game"
+ *  "my_cool_game.jet" → "My Cool Game"
+ *  "camelCaseProject.jet" → "Camel Case Project"
+ */
 function parseProjectName(filename: string): string {
   // Strip extension
   let base = filename.replace(/\.jet$/i, '');
+  // Insert space before uppercase letters (camelCase → Camel Case)
+  base = base.replace(/([a-z])([A-Z])/g, '$1 $2');
   // Replace underscores, hyphens with spaces
   base = base.replace(/[_-]/g, ' ');
   // Title case each word
@@ -69,19 +75,43 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [fileMenuOpen]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     setFileMenuOpen(false);
     const json = saveScene();
+    const safeName = projectName.replace(/\s+/g, '_').toLowerCase();
+
+    // Try native file picker (always opens OS dialog)
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+          suggestedName: `${safeName}.jet`,
+          types: [{
+            description: 'Jet Engine Project',
+            accept: { 'application/json': ['.jet'] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        // Update project name from chosen filename
+        const name = handle.name;
+        setProjectName(parseProjectName(name));
+        return;
+      } catch (err) {
+        // User cancelled or API not available — fall through to download
+        if ((err as DOMException)?.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: auto-download
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    // Use project name as default filename
-    const safeName = projectName.replace(/\s+/g, '_').toLowerCase();
     a.download = `${safeName}.jet`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [saveScene, projectName]);
+  }, [saveScene, projectName, setProjectName]);
 
   const handleLoad = useCallback(() => {
     setFileMenuOpen(false);

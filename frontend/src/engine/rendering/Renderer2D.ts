@@ -128,12 +128,11 @@ export class Renderer2D {
     const cy = this._canvas.height / 2;
 
     // Start with identity, then apply camera transform
-    // Camera: translate to center, zoom, then offset by camera position (Y-up → Y-down flip)
     ctx.translate(cx, cy);
     ctx.scale(this.camera.zoom, this.camera.zoom);
     ctx.translate(-this.camera.position.x, this.camera.position.y);
 
-    // Now walk the hierarchy from root to this entity and multiply local TRS
+    // Walk the hierarchy from root to this entity and multiply local TRS
     const chain: Entity[] = [];
     let cur: Entity | null = entity;
     while (cur) {
@@ -144,13 +143,50 @@ export class Renderer2D {
     for (const e of chain) {
       const t = e.getComponent<Transform2D>('Transform2D');
       if (!t) continue;
-      // Translate by local position (Y-up → screen Y-down: negate Y)
       ctx.translate(t.position.x, -t.position.y);
-      // Rotate (negate for Y-down screen space)
       ctx.rotate((-t.rotation * Math.PI) / 180);
-      // Scale
       ctx.scale(t.scale.x, t.scale.y);
     }
+  }
+
+  /**
+   * Transform a local-space point through the entity's full world transform
+   * to screen space (for AABB computations done after transform).
+   */
+  private localToScreen(entity: Entity, localX: number, localY: number): Vec2 {
+    const world = getWorldTransform(entity);
+    const rad = (world.rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    // Apply world scale, rotation, then translation (Y-up)
+    const sx = localX * world.scaleX;
+    const sy = localY * world.scaleY;
+    const worldX = world.position.x + sx * cos - sy * sin;
+    const worldY = world.position.y + sx * sin + sy * cos;
+
+    return this.worldToScreen(new Vec2(worldX, worldY));
+  }
+
+  /**
+   * Get the screen-space AABB of an entity's local rectangle.
+   * Computes the four corners in screen space and returns the bounding box.
+   */
+  private getScreenAABB(entity: Entity, hw: number, hh: number, offsetX = 0, offsetY = 0): { minX: number; minY: number; maxX: number; maxY: number } {
+    const corners = [
+      this.localToScreen(entity, -hw + offsetX, -hh + offsetY),
+      this.localToScreen(entity, hw + offsetX, -hh + offsetY),
+      this.localToScreen(entity, hw + offsetX, hh + offsetY),
+      this.localToScreen(entity, -hw + offsetX, hh + offsetY),
+    ];
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of corners) {
+      if (c.x < minX) minX = c.x;
+      if (c.y < minY) minY = c.y;
+      if (c.x > maxX) maxX = c.x;
+      if (c.y > maxY) maxY = c.y;
+    }
+    return { minX, minY, maxX, maxY };
   }
 
   renderEntity(entity: Entity): void {
@@ -188,6 +224,15 @@ export class Renderer2D {
       ctx.lineTo(hw, hh);
       ctx.closePath();
       ctx.fill();
+    } else if (sprite.shapeType === 'polygon' && sprite.polygonPoints.length >= 3) {
+      ctx.fillStyle = sprite.color;
+      ctx.beginPath();
+      ctx.moveTo(sprite.polygonPoints[0].x, -sprite.polygonPoints[0].y); // Y-flip for screen
+      for (let i = 1; i < sprite.polygonPoints.length; i++) {
+        ctx.lineTo(sprite.polygonPoints[i].x, -sprite.polygonPoints[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
     } else {
       // rectangle (default)
       ctx.fillStyle = sprite.color;
@@ -197,32 +242,62 @@ export class Renderer2D {
     ctx.restore();
   }
 
-  /** Draw collider hitbox outlines (green AABB) for entities with showHitbox enabled */
+  /** Draw collider hitbox outlines — matches the collision shape */
   renderHitbox(entity: Entity): void {
     if (!this.ctx || !entity.active) return;
     const collider = entity.getComponent<Collider2D>('Collider2D');
     if (!collider || !collider.showHitbox) return;
 
     const ctx = this.ctx;
-    ctx.save();
-    this.applyEntityTransform(ctx, entity);
 
-    const hw = collider.width / 2;
-    const hh = collider.height / 2;
+    if (collider.shape === 'circle') {
+      // Draw circle hitbox in screen space
+      const center = this.localToScreen(entity, collider.offset.x, collider.offset.y);
+      const world = getWorldTransform(entity);
+      const avgScale = (Math.abs(world.scaleX) + Math.abs(world.scaleY)) / 2;
+      const screenRadius = collider.radius * avgScale * this.camera.zoom;
 
-    ctx.strokeStyle = '#00ff00';
-    ctx.lineWidth = 2 / this.camera.zoom; // constant screen-space thickness
-    ctx.setLineDash([]);
-    ctx.strokeRect(
-      -hw + collider.offset.x,
-      -hh - collider.offset.y, // Y-flip for offset
-      collider.width,
-      collider.height
-    );
-
-    ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, screenRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    } else if (collider.shape === 'polygon' && collider.points.length >= 3) {
+      // Draw polygon hitbox in screen space
+      ctx.save();
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      const first = this.localToScreen(entity, collider.points[0].x + collider.offset.x, collider.points[0].y + collider.offset.y);
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < collider.points.length; i++) {
+        const p = this.localToScreen(entity, collider.points[i].x + collider.offset.x, collider.points[i].y + collider.offset.y);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      // Box hitbox: draw as AABB in screen space (matches physics AABB)
+      const aabb = this.getScreenAABB(entity, collider.width / 2, collider.height / 2, collider.offset.x, collider.offset.y);
+      ctx.save();
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.strokeRect(aabb.minX, aabb.minY, aabb.maxX - aabb.minX, aabb.maxY - aabb.minY);
+      ctx.restore();
+    }
   }
 
+  /**
+   * Draw selection box as an axis-aligned bounding box in screen space.
+   * This ensures the selection box never appears rotated/stretched — it's always
+   * an upright rectangle on screen, wrapping the transformed entity.
+   */
   drawSelectionBox(entity: Entity): void {
     if (!this.ctx) return;
 
@@ -230,36 +305,38 @@ export class Renderer2D {
     if (entity.hasComponent('Camera2DComponent')) return;
 
     const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
-
-    const ctx = this.ctx;
-    ctx.save();
-    this.applyEntityTransform(ctx, entity);
-
     const w = sprite ? sprite.width : 50;
     const h = sprite ? sprite.height : 50;
     const hw = w / 2;
     const hh = h / 2;
 
-    // We need a consistent line width regardless of entity scale — use inverse scale
-    const world = getWorldTransform(entity);
-    const absScaleX = Math.abs(world.scaleX) || 1;
-    const absScaleY = Math.abs(world.scaleY) || 1;
-    const lineWidth = 2 / (this.camera.zoom * Math.min(absScaleX, absScaleY));
+    // Get screen-space AABB of the entity's bounding box
+    const aabb = this.getScreenAABB(entity, hw, hh);
 
+    const padding = 4;
+    const x = aabb.minX - padding;
+    const y = aabb.minY - padding;
+    const bw = (aabb.maxX - aabb.minX) + padding * 2;
+    const bh = (aabb.maxY - aabb.minY) + padding * 2;
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Draw dashed selection rectangle
     ctx.strokeStyle = '#4a9eff';
-    ctx.lineWidth = lineWidth;
-    ctx.setLineDash([4 / (this.camera.zoom * Math.min(absScaleX, absScaleY)), 4 / (this.camera.zoom * Math.min(absScaleX, absScaleY))]);
-    ctx.strokeRect(-hw - 4 / absScaleX, -hh - 4 / absScaleY, w + 8 / absScaleX, h + 8 / absScaleY);
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x, y, bw, bh);
     ctx.setLineDash([]);
 
     // Draw corner handles
-    const handleSize = 6 / (this.camera.zoom * Math.min(absScaleX, absScaleY));
+    const handleSize = 6;
     ctx.fillStyle = '#4a9eff';
     const corners = [
-      [-hw - 4 / absScaleX, -hh - 4 / absScaleY],
-      [hw + 4 / absScaleX, -hh - 4 / absScaleY],
-      [-hw - 4 / absScaleX, hh + 4 / absScaleY],
-      [hw + 4 / absScaleX, hh + 4 / absScaleY],
+      [x, y],
+      [x + bw, y],
+      [x, y + bh],
+      [x + bw, y + bh],
     ];
     for (const [cx, cy] of corners) {
       ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
@@ -310,18 +387,17 @@ export class Renderer2D {
       const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
       if (!sprite) continue;
 
-      const world = getWorldTransform(entity);
-      const screenPos = this.worldToScreen(world.position);
-      const absSx = Math.abs(world.scaleX) || 0.001;
-      const absSy = Math.abs(world.scaleY) || 0.001;
-      const w = sprite.width * absSx * this.camera.zoom;
-      const h = sprite.height * absSy * this.camera.zoom;
+      const hw = sprite.width / 2;
+      const hh = sprite.height / 2;
+
+      // Use screen-space AABB for hit testing (always works correctly with rotation/scale)
+      const aabb = this.getScreenAABB(entity, hw, hh);
 
       if (
-        screenX >= screenPos.x - w / 2 &&
-        screenX <= screenPos.x + w / 2 &&
-        screenY >= screenPos.y - h / 2 &&
-        screenY <= screenPos.y + h / 2
+        screenX >= aabb.minX &&
+        screenX <= aabb.maxX &&
+        screenY >= aabb.minY &&
+        screenY <= aabb.maxY
       ) {
         return entity;
       }

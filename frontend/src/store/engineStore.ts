@@ -23,9 +23,13 @@ export interface Asset {
   id: string;
   name: string;
   url: string;
-  type: 'image' | 'prefab';
+  type: 'image' | 'prefab' | 'script';
   /** For prefabs: serialized entity JSON */
   prefabJson?: string;
+  /** For images: base64 data URL (for save/load portability) */
+  base64?: string;
+  /** For script assets: the script source code */
+  scriptSource?: string;
 }
 
 // ─── Camera entity ID constant ─────────────────────
@@ -86,9 +90,11 @@ export interface EngineStore {
 
   // Assets
   assets: Asset[];
-  addAsset: (name: string, url: string) => void;
+  addAsset: (name: string, url: string, base64?: string) => void;
   addPrefabAsset: (name: string, entityJson: string) => void;
+  addScriptAsset: (name: string, scriptSource: string) => void;
   removeAsset: (id: string) => void;
+  updateScriptAsset: (id: string, scriptSource: string) => void;
 
   // Script editing — now supports specific script component id
   editingScriptEntityId: string | null;
@@ -464,9 +470,13 @@ export const useEngineStore = create<EngineStore>((set, get) => {
 
       // Pass prefab assets to game loop
       gl.prefabs.clear();
+      gl.scriptAssets.clear();
       for (const asset of state.assets) {
         if (asset.type === 'prefab' && asset.prefabJson) {
           gl.prefabs.set(asset.name, asset.prefabJson);
+        }
+        if (asset.type === 'script' && asset.scriptSource) {
+          gl.scriptAssets.set(asset.name, asset.scriptSource);
         }
       }
 
@@ -520,15 +530,19 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     saveScene: () => {
       const { scene, assets } = get();
       const sceneData = SceneSerializer.serialize(scene);
-      // Include assets (prefabs are fully serialized; images use URLs which may be blob URLs)
+      // Include assets: images stored as base64 for portability
       const saveData = {
         scene: sceneData,
         assets: assets.map(a => ({
           id: a.id,
           name: a.name,
-          url: a.url,
           type: a.type,
+          // For images: store base64 (not blob URL). base64 is set on import.
+          base64: a.base64,
+          // Clear blob URLs — they won't work after reload
+          url: a.type === 'image' ? '' : a.url,
           prefabJson: a.prefabJson,
+          scriptSource: a.scriptSource,
         })),
       };
       return JSON.stringify(saveData, null, 2);
@@ -544,13 +558,22 @@ export const useEngineStore = create<EngineStore>((set, get) => {
         // New format
         sceneData = parsed.scene;
         if (Array.isArray(parsed.assets)) {
-          loadedAssets = parsed.assets.map((a: Record<string, unknown>) => ({
-            id: (a.id as string) ?? uuidv4(),
-            name: (a.name as string) ?? 'Unknown',
-            url: (a.url as string) ?? '',
-            type: (a.type as string) ?? 'image',
-            prefabJson: a.prefabJson as string | undefined,
-          }));
+          loadedAssets = parsed.assets.map((a: Record<string, unknown>) => {
+            const asset: Asset = {
+              id: (a.id as string) ?? uuidv4(),
+              name: (a.name as string) ?? 'Unknown',
+              url: (a.url as string) ?? '',
+              type: (a.type as Asset['type']) ?? 'image',
+              prefabJson: a.prefabJson as string | undefined,
+              base64: a.base64 as string | undefined,
+              scriptSource: a.scriptSource as string | undefined,
+            };
+            // For images: restore url from base64 if present
+            if (asset.type === 'image' && asset.base64 && !asset.url) {
+              asset.url = asset.base64;
+            }
+            return asset;
+          });
         }
       } else {
         // Old format: raw scene data
@@ -592,15 +615,22 @@ export const useEngineStore = create<EngineStore>((set, get) => {
     },
 
     assets: [],
-    addAsset: (name, url) => {
-      set({ assets: [...get().assets, { id: uuidv4(), name, url, type: 'image' }] });
+    addAsset: (name, url, base64) => {
+      set({ assets: [...get().assets, { id: uuidv4(), name, url, type: 'image', base64 }] });
     },
     addPrefabAsset: (name, entityJson) => {
       set({ assets: [...get().assets, { id: uuidv4(), name, url: '', type: 'prefab', prefabJson: entityJson }] });
     },
+    addScriptAsset: (name, scriptSource) => {
+      set({ assets: [...get().assets, { id: uuidv4(), name, url: '', type: 'script', scriptSource }] });
+    },
     removeAsset: (id) => {
       const { assets } = get();
       set({ assets: assets.filter(a => a.id !== id) });
+    },
+    updateScriptAsset: (id, scriptSource) => {
+      const { assets } = get();
+      set({ assets: assets.map(a => a.id === id ? { ...a, scriptSource } : a) });
     },
 
     editingScriptEntityId: null,
