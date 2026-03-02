@@ -32,6 +32,7 @@ export default function App() {
   const columnRef = useRef<HTMLDivElement>(null);
   const topRowRef = useRef<HTMLDivElement>(null);
 
+  //#region Zustand
   const editingScriptEntityId = useEngineStore((s) => s.editingScriptEntityId);
   const editingScriptAssetId = useEngineStore((s) => s.editingScriptAssetId);
   const editingPrefabId = useEngineStore((s) => s.editingPrefabId);
@@ -42,6 +43,7 @@ export default function App() {
   const loadScene = useEngineStore((s) => s.loadScene);
   const projectName = useEngineStore((s) => s.projectName);
   const setProjectName = useEngineStore((s) => s.setProjectName);
+  //#endregion
 
   // Get the prefab name for display
   const editingPrefabName = editingPrefabId
