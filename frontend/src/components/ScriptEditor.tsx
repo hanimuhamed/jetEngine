@@ -124,7 +124,7 @@ function ScriptEditor() {
 
   // The title to display
   const editorTitle = isAssetMode
-    ? `📜 ${scriptAsset?.name ?? 'Script Asset'}`
+    ? `${scriptAsset?.name ?? 'Script Asset'}`
     : `${script?.scriptName ?? 'Script'} — ${entity?.name ?? ''}`;
 
   const isActive = isAssetMode ? !!scriptAsset : (!!entity && !!script);
@@ -208,8 +208,8 @@ function ScriptEditor() {
         </span>
         <div className="script-editor-actions">
           <span className="script-autosave-hint">auto-saves</span>
-          <button className="toolbar-btn" onClick={handleSave}>💾 Save</button>
-          <button className="toolbar-btn" onClick={handleClose}>✕ Close</button>
+          <button className="toolbar-btn" onClick={handleSave}>Save</button>
+          <button className="toolbar-btn" onClick={handleClose}>Close</button>
         </div>
       </div>
       <div className="script-editor-body">

@@ -37,7 +37,6 @@ function Toolbar() {
           ⏹
         </button>
       </div>
-
       <div className="toolbar-state">
         <span className={`state-badge state-${engineState.toLowerCase()}`}>
           {engineState}

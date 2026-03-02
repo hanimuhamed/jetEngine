@@ -1,7 +1,7 @@
 // components/inspectors/SpriteRendererInspector.tsx
 import { useCallback } from 'react';
 import { useEngineStore } from '../../store/engineStore';
-import { SpriteRenderer, defaultStarPoints } from '../../engine/components/SpriteRenderer';
+import { SpriteRenderer, defaultPentagonPoints } from '../../engine/components/SpriteRenderer';
 import type { ShapeType } from '../../engine/components/SpriteRenderer';
 import { Vec2 } from '../../engine/core/Math2D';
 import DraggableNumber from '../DraggableNumber';
@@ -52,7 +52,7 @@ export function SpriteRendererInspector({ entityId }: { entityId: string }) {
       s.shapeType = newShape;
       // When switching to polygon, auto-fill with star if empty
       if (newShape === 'polygon' && s.polygonPoints.length < 3) {
-        s.polygonPoints = defaultStarPoints();
+        s.polygonPoints = defaultPentagonPoints();
       }
     });
   }, [update]);

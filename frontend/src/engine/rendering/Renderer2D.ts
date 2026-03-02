@@ -6,6 +6,7 @@ import { SpriteRenderer } from '../components/SpriteRenderer';
 import { Camera2DComponent } from '../components/Camera2DComponent';
 import { Collider2D } from '../components/Collider2D';
 import { getWorldTransform } from '../core/WorldTransform';
+import { convexHull } from '../systems/PhysicsSystem';
 
 export interface Camera2D {
   position: Vec2;
@@ -266,19 +267,56 @@ export class Renderer2D {
       ctx.stroke();
       ctx.restore();
     } else if (collider.shape === 'polygon') {
-      // Draw polygon hitbox using SpriteRenderer points (rotates with entity)
+      // Draw polygon hitbox as the convex hull of the shape points (works for any shape type)
       const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
-      const pts = sprite?.polygonPoints;
-      if (pts && pts.length >= 3) {
+      let rawPts: { x: number; y: number }[] | null = null;
+
+      if (sprite) {
+        if (sprite.shapeType === 'polygon' && sprite.polygonPoints.length >= 3) {
+          rawPts = sprite.polygonPoints.map(p => ({ x: p.x, y: p.y }));
+        } else if (sprite.shapeType === 'triangle') {
+          const hw = sprite.width / 2;
+          const hh = sprite.height / 2;
+          rawPts = [
+            { x: 0, y: hh },
+            { x: -hw, y: -hh },
+            { x: hw, y: -hh },
+          ];
+        } else if (sprite.shapeType === 'rectangle') {
+          const hw = sprite.width / 2;
+          const hh = sprite.height / 2;
+          rawPts = [
+            { x: -hw, y: -hh },
+            { x: hw, y: -hh },
+            { x: hw, y: hh },
+            { x: -hw, y: hh },
+          ];
+        }
+      }
+
+      if (!rawPts || rawPts.length < 3) {
+        // Fallback to collider box dimensions
+        const hw = collider.width / 2;
+        const hh = collider.height / 2;
+        rawPts = [
+          { x: -hw, y: -hh },
+          { x: hw, y: -hh },
+          { x: hw, y: hh },
+          { x: -hw, y: hh },
+        ];
+      }
+
+      const hull = convexHull(rawPts);
+      if (hull.length >= 3) {
         ctx.save();
         ctx.strokeStyle = '#00ff00';
         ctx.lineWidth = 2;
         ctx.setLineDash([]);
         ctx.beginPath();
-        const first = this.localToScreen(entity, pts[0].x + collider.offset.x, pts[0].y + collider.offset.y);
+        const first = this.localToScreen(entity, hull[0].x + collider.offset.x, hull[0].y + collider.offset.y);
         ctx.moveTo(first.x, first.y);
-        for (let i = 1; i < pts.length; i++) {
-          const p = this.localToScreen(entity, pts[i].x + collider.offset.x, pts[i].y + collider.offset.y);
+        for (let i = 1; i < hull.length; i++) {
+          const p = this.localToScreen(entity, hull[i].x + collider.offset.x, hull[i].y + collider.offset.y);
           ctx.lineTo(p.x, p.y);
         }
         ctx.closePath();

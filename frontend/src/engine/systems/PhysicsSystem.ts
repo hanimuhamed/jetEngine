@@ -23,6 +23,94 @@ interface CircleBounds {
 
 // ─── SAT helpers ───────────────────────────────────
 
+/** Compute the convex hull of a set of points using Andrew's monotone chain algorithm.
+ *  Returns vertices in counter-clockwise order. */
+export function convexHull(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (points.length <= 2) return [...points];
+
+  // Sort by x, then by y
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+
+  // Cross product of vectors OA and OB where O is origin
+  const cross = (O: { x: number; y: number }, A: { x: number; y: number }, B: { x: number; y: number }) =>
+    (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);
+
+  // Build lower hull
+  const lower: { x: number; y: number }[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+
+  // Build upper hull
+  const upper: { x: number; y: number }[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+
+  // Remove last point of each half because it's repeated
+  lower.pop();
+  upper.pop();
+
+  return [...lower, ...upper];
+}
+
+/** Get the local-space points for a polygon collider based on the entity's shape.
+ *  Works for any shape type — extracts the relevant vertices. */
+function getColliderLocalPoints(entity: Entity, collider: Collider2D): { x: number; y: number }[] | null {
+  const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
+  if (!sprite) return null;
+
+  const offX = collider.offset.x;
+  const offY = collider.offset.y;
+
+  let rawPts: { x: number; y: number }[] | null = null;
+
+  if (sprite.shapeType === 'polygon' && sprite.polygonPoints.length >= 3) {
+    rawPts = sprite.polygonPoints.map(p => ({ x: p.x, y: p.y }));
+  } else if (sprite.shapeType === 'triangle') {
+    const hw = sprite.width / 2;
+    const hh = sprite.height / 2;
+    // Triangle: tip at top (+Y), base at bottom
+    rawPts = [
+      { x: 0, y: hh },
+      { x: -hw, y: -hh },
+      { x: hw, y: -hh },
+    ];
+  } else if (sprite.shapeType === 'rectangle') {
+    const hw = sprite.width / 2;
+    const hh = sprite.height / 2;
+    rawPts = [
+      { x: -hw, y: -hh },
+      { x: hw, y: -hh },
+      { x: hw, y: hh },
+      { x: -hw, y: hh },
+    ];
+  } else {
+    // Fallback: use collider box dimensions
+    const hw = collider.width / 2;
+    const hh = collider.height / 2;
+    rawPts = [
+      { x: -hw, y: -hh },
+      { x: hw, y: -hh },
+      { x: hw, y: hh },
+      { x: -hw, y: hh },
+    ];
+  }
+
+  if (!rawPts || rawPts.length < 3) return null;
+
+  // Compute convex hull of the points, then apply offset
+  const hull = convexHull(rawPts);
+  return hull.map(p => ({ x: p.x + offX, y: p.y + offY }));
+}
+
 /** Get the world-space vertices of a collider (box or polygon) */
 function getWorldVertices(entity: Entity): Vec2[] | null {
   const collider = entity.getComponent<Collider2D>('Collider2D');
@@ -39,10 +127,10 @@ function getWorldVertices(entity: Entity): Vec2[] | null {
   let localPts: { x: number; y: number }[];
 
   if (collider.shape === 'polygon') {
-    // Get polygon points from SpriteRenderer
-    const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
-    if (sprite && sprite.polygonPoints.length >= 3) {
-      localPts = sprite.polygonPoints.map(p => ({ x: p.x + offX, y: p.y + offY }));
+    // Use convex hull of the entity's shape points
+    const hullPts = getColliderLocalPoints(entity, collider);
+    if (hullPts && hullPts.length >= 3) {
+      localPts = hullPts; // offset already applied inside getColliderLocalPoints
     } else {
       // Fallback to box
       const hw = collider.width / 2;

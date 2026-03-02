@@ -108,7 +108,7 @@ function Inspector() {
   return (
     <div className="inspector">
       <div className="inspector-entity-name">
-        {isCamera && <span className="camera-badge">📷 </span>}
+        {isCamera && <span className="camera-badge"></span>}
         {entity.name}
       </div>
       <div className="inspector-tag-row">
@@ -132,7 +132,7 @@ function Inspector() {
                 onClick={() => removeComponentFromEntity(entity.id, comp.id)}
                 title="Remove Component"
               >
-                ✕
+                ⬤
               </button>
             )}
           </div>

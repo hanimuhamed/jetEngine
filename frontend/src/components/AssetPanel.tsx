@@ -13,10 +13,17 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/** Header buttons for the asset panel (rendered in the panel header) */
-export function AssetPanelHeaderButtons() {
-  const addScriptAsset = useEngineStore(s => s.addScriptAsset);
+function AssetPanel() {
+  const assets = useEngineStore(s => s.assets);
   const addAsset = useEngineStore(s => s.addAsset);
+  const addPrefabAsset = useEngineStore(s => s.addPrefabAsset);
+  const addScriptAsset = useEngineStore(s => s.addScriptAsset);
+  const removeAsset = useEngineStore(s => s.removeAsset);
+  const selectedEntityId = useEngineStore(s => s.selectedEntityId);
+  const updateComponent = useEngineStore(s => s.updateComponent);
+  const startEditingPrefab = useEngineStore(s => s.startEditingPrefab);
+  const setEditingScriptAsset = useEngineStore(s => s.setEditingScriptAsset);
+  const engineState = useEngineStore(s => s.engineState);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddScript = useCallback(() => {
@@ -37,37 +44,6 @@ export function AssetPanelHeaderButtons() {
     addAsset(file.name, base64, base64);
     e.target.value = '';
   }, [addAsset]);
-
-  return (
-    <>
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={handleImageFileChange}
-      />
-      <button className="panel-header-btn" onClick={handleAddScript} title="New Script Asset">
-        + Script
-      </button>
-      <button className="panel-header-btn" onClick={handleAddImage} title="Add Image Asset">
-        + Image
-      </button>
-    </>
-  );
-}
-
-function AssetPanel() {
-  const assets = useEngineStore(s => s.assets);
-  const addAsset = useEngineStore(s => s.addAsset);
-  const addPrefabAsset = useEngineStore(s => s.addPrefabAsset);
-  const addScriptAsset = useEngineStore(s => s.addScriptAsset);
-  const removeAsset = useEngineStore(s => s.removeAsset);
-  const selectedEntityId = useEngineStore(s => s.selectedEntityId);
-  const updateComponent = useEngineStore(s => s.updateComponent);
-  const startEditingPrefab = useEngineStore(s => s.startEditingPrefab);
-  const setEditingScriptAsset = useEngineStore(s => s.setEditingScriptAsset);
-  const engineState = useEngineStore(s => s.engineState);
 
   const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -147,11 +123,25 @@ function AssetPanel() {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleImageFileChange}
+      />
+      <div className="asset-actions">
+        <button className="hierarchy-btn" onClick={handleAddScript} title="New Script Asset">
+          + Script
+        </button>
+        <button className="hierarchy-btn" onClick={handleAddImage} title="Add Image Asset">
+          + Image
+        </button>
+      </div>
       {assets.length === 0 ? (
         <div className="asset-panel-empty">
           Drop image/script files here to import assets<br/>
-          or drag entities from Hierarchy to create prefabs.<br/>
-          Use header buttons to add scripts &amp; images.
+          or drag entities from Hierarchy to create prefabs.
         </div>
       ) : (
         <div className="asset-sections">

@@ -68,9 +68,6 @@ export function Collider2DInspector({ entityId }: { entityId: string }) {
     });
   }, [update, sprite]);
 
-  // Count polygon points from SpriteRenderer for display
-  const polyPointCount = sprite?.polygonPoints?.length ?? 0;
-
   return (
     <div className="inspector-fields">
       <div className="field-group">
@@ -100,15 +97,6 @@ export function Collider2DInspector({ entityId }: { entityId: string }) {
         <div className="field-group">
           <label className="field-group-label">Radius</label>
           <DraggableNumber value={collider.radius} onChange={(v) => update(c => { c.radius = v; })} />
-        </div>
-      )}
-
-      {collider.shape === 'polygon' && (
-        <div className="field-group">
-          <label className="field-group-label">Polygon</label>
-          <span className="inspector-hint">
-            Uses {polyPointCount} points from SpriteRenderer shape
-          </span>
         </div>
       )}
 

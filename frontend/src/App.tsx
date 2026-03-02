@@ -6,7 +6,7 @@ import Inspector from "./components/Inspector";
 import Toolbar from "./components/Toolbar";
 import SceneView from "./components/SceneView";
 import ScriptEditor from "./components/ScriptEditor";
-import AssetPanel, { AssetPanelHeaderButtons } from "./components/AssetPanel";
+import AssetPanel from "./components/AssetPanel";
 import ConsolePanel from "./components/ConsolePanel";
 import { useEngineStore } from "./store/engineStore";
 
@@ -74,9 +74,12 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [fileMenuOpen]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (e: React.MouseEvent) => {
+    // Prevent the outside-click handler from closing the menu before we can show the picker
+    e.stopPropagation();
+    setFileMenuOpen(false);
+
     // IMPORTANT: showSaveFilePicker must be called synchronously from user gesture.
-    // Call it FIRST before any state updates or async work.
     const safeName = projectName.replace(/\s+/g, '_').toLowerCase();
     let fileHandle: FileSystemFileHandle | null = null;
 
@@ -91,14 +94,12 @@ export default function App() {
         });
       } catch (err) {
         if ((err as DOMException)?.name === 'AbortError') {
-          setFileMenuOpen(false);
           return;
         }
         // Fall through to download fallback
       }
     }
 
-    setFileMenuOpen(false);
     const json = saveScene();
 
     if (fileHandle) {
@@ -214,11 +215,11 @@ export default function App() {
           </button>
           {fileMenuOpen && (
             <div className="file-menu-dropdown">
-              <div className="file-menu-item" onClick={handleSave}>
-                💾 Save Project
+              <div className="file-menu-item" onMouseDown={handleSave}>
+                Save Project
               </div>
               <div className="file-menu-item" onClick={handleLoad}>
-                📂 Load Project
+                Load Project
               </div>
             </div>
           )}
@@ -291,9 +292,9 @@ export default function App() {
               >
                 {editingPrefabId && (
                   <div className="prefab-edit-bar">
-                    <span className="prefab-edit-bar-label">📦 Editing: {editingPrefabName}</span>
-                    <button className="prefab-edit-bar-btn save" onClick={savePrefab}>💾 Save</button>
-                    <button className="prefab-edit-bar-btn cancel" onClick={cancelPrefabEdit}>✕ Cancel</button>
+                    <span className="prefab-edit-bar-label">Editing: {editingPrefabName}</span>
+                    <button className="prefab-edit-bar-btn save" onClick={savePrefab}>Save</button>
+                    <button className="prefab-edit-bar-btn cancel" onClick={cancelPrefabEdit}>Cancel</button>
                   </div>
                 )}
                 <SceneView />
@@ -311,7 +312,6 @@ export default function App() {
               <Panel
                 title="ASSETS"
                 className="middle-bottom"
-                headerRight={<AssetPanelHeaderButtons />}
               >
                 <AssetPanel />
               </Panel>

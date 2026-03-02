@@ -4,24 +4,17 @@ import { Vec2 } from '../core/Math2D';
 
 export type ShapeType = 'rectangle' | 'circle' | 'triangle' | 'polygon' | 'sprite';
 
-/** Generate default 5-pointed star polygon (unit scale, fits inside ~25px radius).
- *  Points are in local Y-up space. Tip points up (+Y). */
-export function defaultStarPoints(): Vec2[] {
+/** Generate a regular pentagon (unit scale, fits inside ~25px radius).
+ *  Points are in local Y-up space. Top vertex points up (+Y). */
+export function defaultPentagonPoints(): Vec2[] {
   const pts: Vec2[] = [];
-  const outerR = 25;
-  const innerR = 10;
+  const r = 25;
   for (let i = 0; i < 5; i++) {
-    // Outer point — start from top (+90° in Y-up)
-    const outerAngle = (i * 72 + 90) * Math.PI / 180;
+    // Start from top (+90° in Y-up), go counter-clockwise
+    const angle = (i * 72 + 90) * Math.PI / 180;
     pts.push(new Vec2(
-      Math.round(outerR * Math.cos(outerAngle) * 100) / 100,
-      Math.round(outerR * Math.sin(outerAngle) * 100) / 100
-    ));
-    // Inner point
-    const innerAngle = ((i * 72 + 36) + 90) * Math.PI / 180;
-    pts.push(new Vec2(
-      Math.round(innerR * Math.cos(innerAngle) * 100) / 100,
-      Math.round(innerR * Math.sin(innerAngle) * 100) / 100
+      Math.round(r * Math.cos(angle) * 100) / 100,
+      Math.round(r * Math.sin(angle) * 100) / 100
     ));
   }
   return pts;

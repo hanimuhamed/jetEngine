@@ -46,7 +46,7 @@ export function Camera2DInspector({ entityId }: { entityId: string }) {
       <div className="field-group">
         <label className="field-group-label">Zoom</label>
         <div className="field-row">
-          <DraggableNumber label="Zoom" value={cam.zoom} onChange={(v) => update(c => { c.zoom = Math.max(0.1, Math.min(10, v)); })} />
+          <DraggableNumber value={cam.zoom} onChange={(v) => update(c => { c.zoom = Math.max(0.1, Math.min(10, v)); })} />
         </div>
       </div>
 

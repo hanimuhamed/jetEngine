@@ -45,10 +45,7 @@ function Hierarchy() {
     return (
       <div className="hierarchy">
         <div className="hierarchy-prefab-header">
-          <span className="prefab-edit-badge">📦 Editing Prefab</span>
-          <button className="hierarchy-btn" onClick={cancelPrefabEdit} title="Back to Scene">
-            ← Back
-          </button>
+          <span className="prefab-edit-badge">Editing Prefab</span>
         </div>
         <div className="hierarchy-list">
           <HierarchyItem
@@ -264,7 +261,7 @@ function HierarchyItem({
         )}
 
         <span className="entity-icon">
-          {isPrefabMode ? "📦" : isCamera ? "📷" : "◆"}
+          ◆
         </span>
 
         {editing ? (

@@ -38,7 +38,7 @@ function ConsolePanel() {
       <div className="console-header">
         <span className="console-count">{consoleLogs.length} entries</span>
         <button className="toolbar-btn" onClick={clearConsoleLogs} title="Clear Console">
-          🗑 Clear
+          Clear
         </button>
       </div>
       <div className="console-logs" ref={scrollRef}>
