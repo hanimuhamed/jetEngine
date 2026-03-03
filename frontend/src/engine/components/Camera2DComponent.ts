@@ -16,11 +16,13 @@ export class Camera2DComponent extends Component {
       type: this.type,
       backgroundColor: this.backgroundColor,
       zoom: this.zoom,
+      enabled: this.enabled,
     };
   }
 
   deserialize(data: Record<string, unknown>): void {
     this.backgroundColor = (data.backgroundColor as string) ?? '#1a1a2e';
     this.zoom = (data.zoom as number) ?? 1;
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

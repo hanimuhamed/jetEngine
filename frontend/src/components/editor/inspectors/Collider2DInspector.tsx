@@ -1,11 +1,11 @@
 // components/inspectors/Collider2DInspector.tsx
 import { useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { Collider2D } from '../../engine/components/Collider2D';
-import type { ColliderShape } from '../../engine/components/Collider2D';
-import { SpriteRenderer } from '../../engine/components/SpriteRenderer';
-import DraggableNumber from '../DraggableNumber';
-import type { Entity } from '../../engine/core/Entity';
+import { useEngineStore } from '../../../store/engineStore';
+import { Collider2D } from '../../../engine/components/Collider2D';
+import type { ColliderShape } from '../../../engine/components/Collider2D';
+import { SpriteRenderer } from '../../../engine/components/SpriteRenderer';
+import DraggableNumber from '../../DraggableNumber';
+import type { Entity } from '../../../engine/core/Entity';
 
 const SHAPE_OPTIONS: ColliderShape[] = ['box', 'circle', 'polygon'];
 

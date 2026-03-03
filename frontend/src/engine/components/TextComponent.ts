@@ -26,6 +26,7 @@ export class TextComponent extends Component {
   public bold: boolean;
   public italic: boolean;
   public textAlign: 'left' | 'center' | 'right';
+  public layer: number;
 
   constructor() {
     super('TextComponent');
@@ -36,6 +37,7 @@ export class TextComponent extends Component {
     this.bold = false;
     this.italic = false;
     this.textAlign = 'center';
+    this.layer = 0;
   }
 
   serialize(): Record<string, unknown> {
@@ -48,6 +50,8 @@ export class TextComponent extends Component {
       bold: this.bold,
       italic: this.italic,
       textAlign: this.textAlign,
+      layer: this.layer,
+      enabled: this.enabled,
     };
   }
 
@@ -59,5 +63,7 @@ export class TextComponent extends Component {
     this.bold = (data.bold as boolean) ?? false;
     this.italic = (data.italic as boolean) ?? false;
     this.textAlign = (data.textAlign as 'left' | 'center' | 'right') ?? 'center';
+    this.layer = (data.layer as number) ?? 0;
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

@@ -1,10 +1,10 @@
 // components/inspectors/ButtonComponentInspector.tsx
 import { useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { ButtonComponent } from '../../engine/components/ButtonComponent';
-import type { ButtonShape } from '../../engine/components/ButtonComponent';
-import DraggableNumber from '../DraggableNumber';
-import type { Entity } from '../../engine/core/Entity';
+import { useEngineStore } from '../../../store/engineStore';
+import { ButtonComponent } from '../../../engine/components/ButtonComponent';
+import type { ButtonShape } from '../../../engine/components/ButtonComponent';
+import DraggableNumber from '../../DraggableNumber';
+import type { Entity } from '../../../engine/core/Entity';
 
 function findInTree(list: Entity[], id: string): Entity | undefined {
   for (const e of list) {

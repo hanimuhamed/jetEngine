@@ -1,8 +1,8 @@
 // components/inspectors/ScriptComponentInspector.tsx
 import { useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { ScriptComponent } from '../../engine/components/ScriptComponent';
-import type { Entity } from '../../engine/core/Entity';
+import { useEngineStore } from '../../../store/engineStore';
+import { ScriptComponent } from '../../../engine/components/ScriptComponent';
+import type { Entity } from '../../../engine/core/Entity';
 
 /** Find entity in nested tree */
 function findInTree(list: Entity[], id: string): Entity | undefined {

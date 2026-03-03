@@ -35,6 +35,7 @@ export class Collider2D extends Component {
       offset: this.offset.toPlain(),
       isTrigger: this.isTrigger,
       showHitbox: this.showHitbox,
+      enabled: this.enabled,
     };
   }
 
@@ -47,5 +48,6 @@ export class Collider2D extends Component {
     if (off) this.offset = Vec2.fromPlain(off);
     this.isTrigger = (data.isTrigger as boolean) ?? false;
     this.showHitbox = (data.showHitbox as boolean) ?? false;
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

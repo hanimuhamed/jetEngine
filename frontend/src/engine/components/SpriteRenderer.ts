@@ -28,6 +28,8 @@ export class SpriteRenderer extends Component {
   public visible: boolean;
   public layer: number;
   public spriteUrl: string;
+  public flipX: boolean;
+  public flipY: boolean;
   /** Polygon points (local space) for polygon shape rendering */
   public polygonPoints: Vec2[];
   private _loadedImage: HTMLImageElement | null = null;
@@ -47,6 +49,8 @@ export class SpriteRenderer extends Component {
     this.visible = true;
     this.layer = 0;
     this.spriteUrl = '';
+    this.flipX = false;
+    this.flipY = false;
     this.polygonPoints = [];
   }
 
@@ -79,7 +83,10 @@ export class SpriteRenderer extends Component {
       visible: this.visible,
       layer: this.layer,
       spriteUrl: this.spriteUrl,
+      flipX: this.flipX,
+      flipY: this.flipY,
       polygonPoints: this.polygonPoints.map(p => p.toPlain()),
+      enabled: this.enabled,
     };
   }
 
@@ -90,6 +97,8 @@ export class SpriteRenderer extends Component {
     this.height = (data.height as number) ?? 50;
     this.visible = (data.visible as boolean) ?? true;
     this.layer = (data.layer as number) ?? 0;
+    this.flipX = (data.flipX as boolean) ?? false;
+    this.flipY = (data.flipY as boolean) ?? false;
     const url = data.spriteUrl as string;
     if (url) {
       this.loadImage(url);
@@ -98,5 +107,6 @@ export class SpriteRenderer extends Component {
     if (Array.isArray(pts)) {
       this.polygonPoints = pts.map(p => Vec2.fromPlain(p));
     }
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

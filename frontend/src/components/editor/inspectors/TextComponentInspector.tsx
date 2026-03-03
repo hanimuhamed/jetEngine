@@ -1,10 +1,10 @@
 // components/inspectors/TextComponentInspector.tsx
 import { useCallback } from 'react';
-import { ColorPicker } from '../ColorPicker';
-import { TextComponent, FONT_OPTIONS } from '../../engine/components/TextComponent';
-import DraggableNumber from '../DraggableNumber';
-import type { Entity } from '../../engine/core/Entity';
-import { useEngineStore } from '../../store/engineStore';
+import { ColorPicker } from '../../ColorPicker';
+import { TextComponent, FONT_OPTIONS } from '../../../engine/components/TextComponent';
+import DraggableNumber from '../../DraggableNumber';
+import type { Entity } from '../../../engine/core/Entity';
+import { useEngineStore } from '../../../store/engineStore';
 
 function findInTree(list: Entity[], id: string): Entity | undefined {
   for (const e of list) {
@@ -108,6 +108,11 @@ export function TextComponentInspector({ entityId }: { entityId: string }) {
           />
           Italic
         </label>
+      </div>
+
+      <div className="field-group">
+        <label className="field-group-label">Layer</label>
+        <DraggableNumber value={tc.layer} onChange={(v) => update(c => { c.layer = Math.round(v); })} />
       </div>
     </div>
   );

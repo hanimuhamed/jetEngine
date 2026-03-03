@@ -11,6 +11,7 @@ export function ColorPicker({ color, onChange, label }: ColorPickerProps) {
   const [open, setOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const swatchRef = useRef<HTMLDivElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   // Close on outside click
   useEffect(() => {
@@ -29,6 +30,15 @@ export function ColorPicker({ color, onChange, label }: ColorPickerProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  // Position the popover near the swatch
+  const handleOpen = () => {
+    if (swatchRef.current) {
+      const rect = swatchRef.current.getBoundingClientRect();
+      setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(!open);
+  };
+
   return (
     <div className="color-picker-wrapper">
       {label && <label className="inspector-label">{label}</label>}
@@ -37,7 +47,7 @@ export function ColorPicker({ color, onChange, label }: ColorPickerProps) {
           ref={swatchRef}
           className="color-picker-swatch"
           style={{ backgroundColor: color }}
-          onClick={() => setOpen(!open)}
+          onClick={handleOpen}
           title={color}
         />
         <input
@@ -49,7 +59,11 @@ export function ColorPicker({ color, onChange, label }: ColorPickerProps) {
         />
       </div>
       {open && (
-        <div ref={popoverRef} className="color-picker-popover">
+        <div
+          ref={popoverRef}
+          className="color-picker-popover"
+          style={{ top: popoverPos.top, left: popoverPos.left }}
+        >
           <HexColorPicker color={color} onChange={onChange} />
         </div>
       )}

@@ -125,6 +125,13 @@ export interface EngineStore {
   savePrefab: () => void;
   cancelPrefabEdit: () => void;
 
+  // Scene aspect ratio (persisted in store)
+  sceneAspectRatio: number | null;
+  customRatioX: number;
+  customRatioY: number;
+  setSceneAspectRatio: (ratio: number | null) => void;
+  setCustomRatio: (x: number, y: number) => void;
+
   // Force re-render trigger
   _tick: number;
   syncEntities: () => void;
@@ -759,5 +766,12 @@ export const useEngineStore = create<EngineStore>((set, get) => {
         selectedEntityId: null,
       });
     },
+
+    // Scene aspect ratio
+    sceneAspectRatio: null,
+    customRatioX: 16,
+    customRatioY: 9,
+    setSceneAspectRatio: (ratio) => set({ sceneAspectRatio: ratio }),
+    setCustomRatio: (x, y) => set({ customRatioX: x, customRatioY: y, sceneAspectRatio: x / y }),
   };
 });

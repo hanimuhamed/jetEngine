@@ -1,6 +1,29 @@
 // engine/core/InputManager.ts — Handles keyboard and mouse input
 import { Vec2 } from './Math2D';
 
+/** Aliases so scripts can use input.isKeyDown("Space"), "Shift", "Ctrl", "Alt" etc. */
+const KEY_ALIASES: Record<string, string> = {
+  ' ': 'Space',
+  'Space': 'Space',
+  'Shift': 'Shift',
+  'ShiftLeft': 'Shift',
+  'ShiftRight': 'Shift',
+  'Ctrl': 'Ctrl',
+  'CtrlLeft': 'Ctrl',
+  'CtrlRight': 'Ctrl',
+  'Control': 'Ctrl',
+  'ControlLeft': 'Ctrl',
+  'ControlRight': 'Ctrl',
+  'Alt': 'Alt',
+  'AltLeft': 'Alt',
+  'AltRight': 'Alt',
+  'Tab': 'Tab',
+  'Enter': 'Enter',
+  'Return': 'Enter',
+  'Escape': 'Escape',
+  'Backspace': 'Backspace',
+};
+
 export class InputManager {
   // Store both e.key ("a", "ArrowLeft") AND e.code ("KeyA", "ArrowLeft")
   // so scripts can use either format
@@ -29,6 +52,12 @@ export class InputManager {
       }
       this.keysDown.add(lower);
     }
+    // Map common key aliases for convenience in scripts
+    const alias = KEY_ALIASES[e.key] || KEY_ALIASES[e.code];
+    if (alias && !this.keysDown.has(alias)) {
+      this.keysPressed.add(alias);
+      this.keysDown.add(alias);
+    }
   };
 
   private _onKeyUp = (e: KeyboardEvent) => {
@@ -37,6 +66,8 @@ export class InputManager {
     if (e.key.length === 1) {
       this.keysDown.delete(e.key.toLowerCase());
     }
+    const alias = KEY_ALIASES[e.key] || KEY_ALIASES[e.code];
+    if (alias) this.keysDown.delete(alias);
   };
 
   private _onMouseDown = (e: MouseEvent) => {

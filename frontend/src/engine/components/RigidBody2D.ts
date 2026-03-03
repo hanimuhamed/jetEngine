@@ -22,11 +22,6 @@ export class RigidBody2D extends Component {
     this.bounciness = 0.5;
   }
 
-  applyForce(force: Vec2): void {
-    if (this.isKinematic) return;
-    this.acceleration = this.acceleration.add(force.scale(1 / this.mass));
-  }
-
   serialize(): Record<string, unknown> {
     return {
       type: this.type,
@@ -37,6 +32,7 @@ export class RigidBody2D extends Component {
       isKinematic: this.isKinematic,
       drag: this.drag,
       bounciness: this.bounciness,
+      enabled: this.enabled,
     };
   }
 
@@ -50,5 +46,6 @@ export class RigidBody2D extends Component {
     this.isKinematic = (data.isKinematic as boolean) ?? false;
     this.drag = (data.drag as number) ?? 0.01;
     this.bounciness = (data.bounciness as number) ?? 0.5;
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

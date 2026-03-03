@@ -9,6 +9,7 @@ import { SpriteRenderer } from '../components/SpriteRenderer';
 import { Camera2DComponent } from '../components/Camera2DComponent';
 import { ScriptComponent } from '../components/ScriptComponent';
 import { ButtonComponent } from '../components/ButtonComponent';
+import { TextComponent } from '../components/TextComponent';
 import type { CollisionEvent } from '../systems/PhysicsSystem';
 
 export interface TimeInfo {
@@ -119,6 +120,7 @@ export class ScriptRunner {
       const VALID_COMPONENT_TYPES = [
         'Transform2D', 'RigidBody2D', 'Collider2D',
         'SpriteRenderer', 'Camera2DComponent', 'ScriptComponent',
+        'TextComponent', 'ButtonComponent',
       ];
 
       function makeTransformProxy(t: Transform2D) {
@@ -138,6 +140,8 @@ export class ScriptRunner {
             set y(v: number) { t.scale.y = v; },
           },
           translate(dx: number, dy: number) { t.translate(dx, dy); },
+          get enabled() { return t.enabled; },
+          set enabled(v: boolean) { t.enabled = v; },
         };
       }
 
@@ -165,7 +169,8 @@ export class ScriptRunner {
           set drag(v: number) { rb.drag = v; },
           get bounciness() { return rb.bounciness; },
           set bounciness(v: number) { rb.bounciness = v; },
-          applyForce(x: number, y: number) { rb.applyForce(new Vec2(x, y)); },
+          get enabled() { return rb.enabled; },
+          set enabled(v: boolean) { rb.enabled = v; },
           setVelocity(x: number, y: number) { rb.velocity = new Vec2(x, y); },
         };
       }
@@ -190,6 +195,8 @@ export class ScriptRunner {
           set isTrigger(v: boolean) { c.isTrigger = v; },
           get showHitbox() { return c.showHitbox; },
           set showHitbox(v: boolean) { c.showHitbox = v; },
+          get enabled() { return c.enabled; },
+          set enabled(v: boolean) { c.enabled = v; },
         };
       }
 
@@ -207,6 +214,12 @@ export class ScriptRunner {
           set visible(v: boolean) { sr.visible = v; },
           get layer() { return sr.layer; },
           set layer(v: number) { sr.layer = v; },
+          get enabled() { return sr.enabled; },
+          set enabled(v: boolean) { sr.enabled = v; },
+          get flipX() { return sr.flipX; },
+          set flipX(v: boolean) { sr.flipX = v; },
+          get flipY() { return sr.flipY; },
+          set flipY(v: boolean) { sr.flipY = v; },
         };
       }
 
@@ -216,6 +229,52 @@ export class ScriptRunner {
           set backgroundColor(v: string) { cam.backgroundColor = v; },
           get zoom() { return cam.zoom; },
           set zoom(v: number) { cam.zoom = v; },
+          get enabled() { return cam.enabled; },
+          set enabled(v: boolean) { cam.enabled = v; },
+        };
+      }
+
+      function makeTextComponentProxy(tc: TextComponent) {
+        return {
+          get text() { return tc.text; },
+          set text(v: string) { tc.text = v; },
+          get fontFamily() { return tc.fontFamily; },
+          set fontFamily(v: string) { tc.fontFamily = v; },
+          get fontSize() { return tc.fontSize; },
+          set fontSize(v: number) { tc.fontSize = v; },
+          get color() { return tc.color; },
+          set color(v: string) { tc.color = v; },
+          get bold() { return tc.bold; },
+          set bold(v: boolean) { tc.bold = v; },
+          get italic() { return tc.italic; },
+          set italic(v: boolean) { tc.italic = v; },
+          get textAlign() { return tc.textAlign; },
+          set textAlign(v: string) { tc.textAlign = v as TextComponent['textAlign']; },
+          get layer() { return tc.layer; },
+          set layer(v: number) { tc.layer = v; },
+          get enabled() { return tc.enabled; },
+          set enabled(v: boolean) { tc.enabled = v; },
+        };
+      }
+
+      function makeButtonComponentProxy(btn: ButtonComponent) {
+        return {
+          get shape() { return btn.shape; },
+          set shape(v: string) { btn.shape = v as ButtonComponent['shape']; },
+          get width() { return btn.width; },
+          set width(v: number) { btn.width = v; },
+          get height() { return btn.height; },
+          set height(v: number) { btn.height = v; },
+          get radius() { return btn.radius; },
+          set radius(v: number) { btn.radius = v; },
+          offset: {
+            get x() { return btn.offset.x; },
+            set x(v: number) { btn.offset.x = v; },
+            get y() { return btn.offset.y; },
+            set y(v: number) { btn.offset.y = v; },
+          },
+          get enabled() { return btn.enabled; },
+          set enabled(v: boolean) { btn.enabled = v; },
         };
       }
 
@@ -225,6 +284,8 @@ export class ScriptRunner {
         if (type === 'Collider2D') return makeColliderProxy(comp as Collider2D);
         if (type === 'SpriteRenderer') return makeSpriteRendererProxy(comp as SpriteRenderer);
         if (type === 'Camera2DComponent') return makeCameraProxy(comp as Camera2DComponent);
+        if (type === 'TextComponent') return makeTextComponentProxy(comp as TextComponent);
+        if (type === 'ButtonComponent') return makeButtonComponentProxy(comp as ButtonComponent);
         return null;
       }
 
@@ -241,6 +302,8 @@ export class ScriptRunner {
         name: entity.name,
         get tag() { return entity.tag; },
         set tag(v: string) { entity.tag = v; },
+        get active() { return entity.active; },
+        set active(v: boolean) { entity.active = v; },
         getComponent: (type: string) => {
           if (!VALID_COMPONENT_TYPES.includes(type)) {
             sandboxConsole.error(`[getComponent] Unknown component type: "${type}". Valid types: ${VALID_COMPONENT_TYPES.join(', ')}`);
@@ -254,17 +317,13 @@ export class ScriptRunner {
           return makeComponentProxy(comp, type);
         },
         destroy: () => sceneProxy.destroyEntity(entity),
-        applyForce: (x: number, y: number) => {
-          const rb = entity.getComponent<RigidBody2D>('RigidBody2D');
-          if (rb) rb.applyForce(new Vec2(x, y));
-          else sandboxConsole.error(`[applyForce] Entity "${entity.name}" does not have RigidBody2D.`);
-        },
       };
 
       const inputProxy = {
         isKeyDown: (key: string) => input.isKeyDown(key),
         isKeyPressed: (key: string) => input.isKeyPressed(key),
         isMouseButtonDown: (button: number) => input.isMouseButtonDown(button),
+        isMouseButtonPressed: (button: number) => input.isMouseButtonPressed(button),
         getMousePosition: () => input.getMousePosition(),
       };
 
@@ -437,6 +496,8 @@ export class ScriptRunner {
           name: other.name,
           tag: other.tag,
           isTrigger,
+          get active() { return other.active; },
+          set active(v: boolean) { other.active = v; },
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

@@ -1,12 +1,12 @@
 // components/SceneView.tsx — Canvas scene view
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useEngineStore } from '../store/engineStore';
-import { Transform2D } from '../engine/components/Transform2D';
-import { Camera2DComponent } from '../engine/components/Camera2DComponent';
-import { SpriteRenderer } from '../engine/components/SpriteRenderer';
-import { Vec2 } from '../engine/core/Math2D';
-import { getWorldTransform } from '../engine/core/WorldTransform';
-import type { Entity } from '../engine/core/Entity';
+import { useEngineStore } from '../../store/engineStore';
+import { Transform2D } from '../../engine/components/Transform2D';
+import { Camera2DComponent } from '../../engine/components/Camera2DComponent';
+import { SpriteRenderer } from '../../engine/components/SpriteRenderer';
+import { Vec2 } from '../../engine/core/Math2D';
+import { getWorldTransform } from '../../engine/core/WorldTransform';
+import type { Entity } from '../../engine/core/Entity';
 
 /** Recursively flatten entities (including children) */
 function flattenEntities(entities: Entity[]): Entity[] {
@@ -20,13 +20,14 @@ function flattenEntities(entities: Entity[]): Entity[] {
   return result;
 }
 
-const ASPECT_RATIOS: { label: string; value: number | null }[] = [
+const ASPECT_RATIOS: { label: string; value: number | null | 'custom' }[] = [
   { label: 'Free', value: null },
   { label: '16:9', value: 16 / 9 },
   { label: '4:3', value: 4 / 3 },
   { label: '1:1', value: 1 },
   { label: '21:9', value: 21 / 9 },
   { label: '9:16', value: 9 / 16 },
+  { label: 'Custom', value: 'custom' },
 ];
 
 type DragMode = 'none' | 'move' | 'scale';
@@ -50,8 +51,14 @@ function SceneView() {
   const selectEntity = useEngineStore(s => s.selectEntity);
   const engineState = useEngineStore(s => s.engineState);
   const editingPrefabId = useEngineStore(s => s.editingPrefabId);
+  const aspectRatio = useEngineStore(s => s.sceneAspectRatio);
+  const setAspectRatio = useEngineStore(s => s.setSceneAspectRatio);
+  const customRatioX = useEngineStore(s => s.customRatioX);
+  const customRatioY = useEngineStore(s => s.customRatioY);
+  const setCustomRatio = useEngineStore(s => s.setCustomRatio);
 
-  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  // Track whether custom ratio is selected
+  const [isCustom, setIsCustom] = useState(false);
 
   // Initialize canvas
   useEffect(() => {
@@ -150,9 +157,12 @@ function SceneView() {
     const t = camEntity.getComponent<Transform2D>('Transform2D');
     if (!cam || !t) return;
 
-    // The camera shows a viewport of size (canvasW / cam.zoom, canvasH / cam.zoom) centered at camera position
-    const vw = canvas.width / cam.zoom;
-    const vh = canvas.height / cam.zoom;
+    // The camera shows a viewport based on a fixed reference resolution (1920x1080),
+    // not the current canvas size, so resizing the panel doesn't change the viewport
+    const REF_W = 1920;
+    const REF_H = 1080;
+    const vw = REF_W / cam.zoom;
+    const vh = REF_H / cam.zoom;
 
     // Four corners of the camera viewport in world space
     const cx = t.position.x;
@@ -390,12 +400,8 @@ function SceneView() {
       const scaleFactorX = Math.abs(startDx) > 0.01 ? curDx / startDx : 1;
       const scaleFactorY = Math.abs(startDy) > 0.01 ? curDy / startDy : 1;
 
-      transform.scale.x = handle.startScaleX * Math.abs(scaleFactorX);
-      transform.scale.y = handle.startScaleY * Math.abs(scaleFactorY);
-
-      // Clamp minimum scale
-      transform.scale.x = Math.max(0.01, transform.scale.x);
-      transform.scale.y = Math.max(0.01, transform.scale.y);
+      transform.scale.x = handle.startScaleX * scaleFactorX;
+      transform.scale.y = handle.startScaleY * scaleFactorY;
 
       // Optionally adjust position to keep anchor fixed
       // Recompute entity center so that the anchor corner stays put
@@ -439,8 +445,17 @@ function SceneView() {
         <label className="scene-ratio-label">Ratio:</label>
         <select
           className="scene-ratio-select"
-          value={aspectRatio?.toString() ?? ''}
-          onChange={(e) => setAspectRatio(e.target.value ? Number(e.target.value) : null)}
+          value={isCustom ? 'custom' : (aspectRatio?.toString() ?? '')}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === 'custom') {
+              setIsCustom(true);
+              setCustomRatio(customRatioX, customRatioY);
+            } else {
+              setIsCustom(false);
+              setAspectRatio(val ? Number(val) : null);
+            }
+          }}
         >
           {ASPECT_RATIOS.map(ar => (
             <option key={ar.label} value={ar.value?.toString() ?? ''}>
@@ -448,6 +463,31 @@ function SceneView() {
             </option>
           ))}
         </select>
+        {isCustom && (
+          <div className="scene-ratio-custom">
+            <input
+              type="number"
+              className="scene-ratio-custom-input"
+              value={customRatioX}
+              min={1}
+              onChange={(e) => {
+                const x = Math.max(1, Number(e.target.value) || 1);
+                setCustomRatio(x, customRatioY);
+              }}
+            />
+            <span className="scene-ratio-custom-sep">:</span>
+            <input
+              type="number"
+              className="scene-ratio-custom-input"
+              value={customRatioY}
+              min={1}
+              onChange={(e) => {
+                const y = Math.max(1, Number(e.target.value) || 1);
+                setCustomRatio(customRatioX, y);
+              }}
+            />
+          </div>
+        )}
       </div>
       <div className="scene-canvas-wrapper">
         <canvas

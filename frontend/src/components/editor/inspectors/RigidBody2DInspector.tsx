@@ -1,9 +1,9 @@
 // components/inspectors/RigidBody2DInspector.tsx
 import { useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { RigidBody2D } from '../../engine/components/RigidBody2D';
-import DraggableNumber from '../DraggableNumber';
-import type { Entity } from '../../engine/core/Entity';
+import { useEngineStore } from '../../../store/engineStore';
+import { RigidBody2D } from '../../../engine/components/RigidBody2D';
+import DraggableNumber from '../../DraggableNumber';
+import type { Entity } from '../../../engine/core/Entity';
 
 /** Find entity in nested tree */
 function findInTree(list: Entity[], id: string): Entity | undefined {

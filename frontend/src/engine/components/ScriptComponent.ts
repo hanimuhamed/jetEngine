@@ -12,18 +12,20 @@ export const DEFAULT_SCRIPT_TEMPLATE = (entityName: string) => `// Script for en
 //
 // ── Entity ──
 // entity.tag — get/set the entity tag
-// entity.applyForce(x, y) — apply a force (needs RigidBody2D)
+// entity.active — get/set entity active state
 // entity.getComponent("RigidBody2D") — returns component proxy
 // entity.getComponent("Collider2D")
 // entity.getComponent("SpriteRenderer")
+// entity.getComponent("TextComponent")
+// entity.getComponent("ButtonComponent")
 // entity.destroy()
 //
 // ── RigidBody2D proxy ──
 // rb = entity.getComponent("RigidBody2D")
 // rb.velocity.x / rb.velocity.y
 // rb.setVelocity(x, y)
-// rb.applyForce(x, y)
 // rb.mass, rb.gravityScale, rb.drag, rb.bounciness, rb.isKinematic
+// rb.enabled = true/false
 //
 // ── Collider2D proxy ──
 // col = entity.getComponent("Collider2D")
@@ -77,6 +79,7 @@ export class ScriptComponent extends Component {
       scriptName: this.scriptName,
       scriptSource: this.scriptSource,
       scriptAssetName: this.scriptAssetName,
+      enabled: this.enabled,
     };
   }
 
@@ -84,5 +87,6 @@ export class ScriptComponent extends Component {
     this.scriptName = (data.scriptName as string) ?? 'NewScript';
     this.scriptSource = (data.scriptSource as string) ?? '';
     this.scriptAssetName = (data.scriptAssetName as string) ?? '';
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

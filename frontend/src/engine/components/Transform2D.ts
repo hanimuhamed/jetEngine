@@ -28,6 +28,7 @@ export class Transform2D extends Component {
       position: this.position.toPlain(),
       rotation: this.rotation,
       scale: this.scale.toPlain(),
+      enabled: this.enabled,
     };
   }
 
@@ -37,5 +38,6 @@ export class Transform2D extends Component {
     this.position = new Vec2(pos.x, pos.y);
     this.rotation = data.rotation as number;
     this.scale = new Vec2(scl.x, scl.y);
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

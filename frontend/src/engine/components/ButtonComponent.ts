@@ -28,6 +28,7 @@ export class ButtonComponent extends Component {
       height: this.height,
       radius: this.radius,
       offset: this.offset.toPlain(),
+      enabled: this.enabled,
     };
   }
 
@@ -38,5 +39,6 @@ export class ButtonComponent extends Component {
     this.radius = (data.radius as number) ?? 25;
     const off = data.offset as { x: number; y: number };
     if (off) this.offset = Vec2.fromPlain(off);
+    this.enabled = (data.enabled as boolean) ?? true;
   }
 }

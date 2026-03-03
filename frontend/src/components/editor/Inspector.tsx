@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useEngineStore } from '../store/engineStore';
+import { useEngineStore } from '../../store/engineStore';
 import { Transform2DInspector } from './inspectors/Transform2DInspector';
 import { SpriteRendererInspector } from './inspectors/SpriteRendererInspector';
 import { RigidBody2DInspector } from './inspectors/RigidBody2DInspector';
@@ -8,7 +8,7 @@ import { ScriptComponentInspector } from './inspectors/ScriptComponentInspector'
 import { Camera2DInspector } from './inspectors/Camera2DInspector';
 import { TextComponentInspector } from './inspectors/TextComponentInspector';
 import { ButtonComponentInspector } from './inspectors/ButtonComponentInspector';
-import type { Component } from '../engine/core/Component';
+import type { Component } from '../../engine/core/Component';
 
 const AVAILABLE_COMPONENTS = [
   'Transform2D',
@@ -56,6 +56,7 @@ function Inspector() {
   const setEntityTag = useEngineStore(s => s.setEntityTag);
   const editingPrefabId = useEngineStore(s => s.editingPrefabId);
   const editingPrefabEntity = useEngineStore(s => s.editingPrefabEntity);
+  const syncEntities = useEngineStore(s => s.syncEntities);
   const _tick = useEngineStore(s => s._tick);
   void _tick; // subscribe to tick for reactivity
 
@@ -117,6 +118,13 @@ function Inspector() {
     <div className="inspector">
       <div className="inspector-entity-name">
         {isCamera && <span className="camera-badge"></span>}
+        <label className="inspector-active-checkbox" title="Entity Active">
+          <input
+            type="checkbox"
+            checked={entity.active}
+            onChange={(e) => { entity.active = e.target.checked; syncEntities(); }}
+          />
+        </label>
         {entity.name}
       </div>
       <div className="inspector-tag-row">
@@ -129,8 +137,17 @@ function Inspector() {
         />
       </div>
       {components.map(comp => (
-        <div key={comp.id} className="inspector-component">
+        <div key={comp.id} className="inspector-component" style={comp.enabled ? undefined : { opacity: 0.5 }}>
           <div className="inspector-component-header">
+            {comp.type !== 'Transform2D' && (
+              <input
+                type="checkbox"
+                className="inspector-component-enabled"
+                checked={comp.enabled}
+                onChange={(e) => { comp.enabled = e.target.checked; syncEntities(); }}
+                title="Enabled"
+              />
+            )}
             <span className="inspector-component-title">{comp.type}</span>
             {/* Don't allow removing Transform2D or Camera2DComponent from camera */}
             {!(comp.type === 'Transform2D') &&

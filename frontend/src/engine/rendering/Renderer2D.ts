@@ -214,6 +214,11 @@ export class Renderer2D {
     ctx.save();
     this.applyEntityTransform(ctx, entity);
 
+    // Apply flip transforms
+    if (sprite && (sprite.flipX || sprite.flipY)) {
+      ctx.scale(sprite.flipX ? -1 : 1, sprite.flipY ? -1 : 1);
+    }
+
     // --- Sprite Rendering ---
     if (sprite && sprite.visible) {
       const hw = sprite.width / 2;
@@ -386,47 +391,60 @@ export class Renderer2D {
     const hw = w / 2;
     const hh = h / 2;
 
-    // Get screen-space AABB of the entity's bounding box
-    const aabb = this.getScreenAABB(entity, hw, hh);
+    // Get the four corners of the entity's bounding box in screen space (rotated)
+    const tl = this.localToScreen(entity, -hw, hh);
+    const tr = this.localToScreen(entity, hw, hh);
+    const br = this.localToScreen(entity, hw, -hh);
+    const bl = this.localToScreen(entity, -hw, -hh);
 
+    // Expand corners outward by padding
     const padding = 4;
-    const x = aabb.minX - padding;
-    const y = aabb.minY - padding;
-    const bw = (aabb.maxX - aabb.minX) + padding * 2;
-    const bh = (aabb.maxY - aabb.minY) + padding * 2;
+    const cx = (tl.x + tr.x + br.x + bl.x) / 4;
+    const cy = (tl.y + tr.y + br.y + bl.y) / 4;
+    const expandCorner = (c: Vec2) => {
+      const dx = c.x - cx;
+      const dy = c.y - cy;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      return new Vec2(c.x + (dx / len) * padding, c.y + (dy / len) * padding);
+    };
+    const corners = [expandCorner(tl), expandCorner(tr), expandCorner(br), expandCorner(bl)];
 
     const ctx = this.ctx;
     ctx.save();
 
-    // Draw dashed selection rectangle
+    // Draw dashed rotated selection rectangle
     ctx.strokeStyle = '#4a9eff';
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 4]);
-    ctx.strokeRect(x, y, bw, bh);
+    ctx.beginPath();
+    ctx.moveTo(corners[0].x, corners[0].y);
+    for (let i = 1; i < 4; i++) {
+      ctx.lineTo(corners[i].x, corners[i].y);
+    }
+    ctx.closePath();
+    ctx.stroke();
     ctx.setLineDash([]);
 
     // Draw corner handles
     const handleSize = 6;
     ctx.fillStyle = '#4a9eff';
-    const corners = [
-      [x, y],
-      [x + bw, y],
-      [x, y + bh],
-      [x + bw, y + bh],
-    ];
-    for (const [cx, cy] of corners) {
-      ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+    for (const c of corners) {
+      ctx.fillRect(c.x - handleSize / 2, c.y - handleSize / 2, handleSize, handleSize);
     }
 
     ctx.restore();
   }
 
   renderEntities(entities: Entity[], selectedId: string | null, isEditorMode: boolean = true): void {
-    // Sort by layer
+    // Sort by layer (check both SpriteRenderer and TextComponent layer)
     const sorted = [...entities].sort((a, b) => {
       const sa = a.getComponent<SpriteRenderer>('SpriteRenderer');
+      const ta = a.getComponent<TextComponent>('TextComponent');
       const sb = b.getComponent<SpriteRenderer>('SpriteRenderer');
-      return (sa?.layer ?? 0) - (sb?.layer ?? 0);
+      const tb = b.getComponent<TextComponent>('TextComponent');
+      const layerA = sa?.layer ?? ta?.layer ?? 0;
+      const layerB = sb?.layer ?? tb?.layer ?? 0;
+      return layerA - layerB;
     });
 
     for (const entity of sorted) {

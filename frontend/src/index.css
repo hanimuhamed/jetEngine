@@ -503,6 +503,34 @@ html, body, #root {
   outline: none;
 }
 
+.scene-ratio-custom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scene-ratio-custom-input {
+  width: 40px;
+  background: var(--field-color);
+  color: var(--text-color);
+  border: 1px solid #3a3d4a;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-family: 'Space Mono', monospace;
+  outline: none;
+  text-align: center;
+}
+
+.scene-ratio-custom-input:focus {
+  border-color: var(--highlight-color);
+}
+
+.scene-ratio-custom-sep {
+  color: #888;
+  font-size: 11px;
+}
+
 .scene-canvas-wrapper {
   flex: 1;
   display: flex;
@@ -538,13 +566,31 @@ html, body, #root {
   padding: 4px 0 10px;
   border-bottom: 1px solid #1a1a1f;
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inspector-active-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.inspector-active-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.inspector-component-enabled {
+  margin: 0 4px 0 0;
+  cursor: pointer;
 }
 
 .inspector-component {
   background: var(--accent-color);
   border-radius: 6px;
   margin-bottom: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .inspector-component-header {
@@ -1324,10 +1370,8 @@ input[type="checkbox"] {
 }
 
 .color-picker-popover {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 100;
+  position: fixed;
+  z-index: 9999;
   margin-top: 4px;
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);

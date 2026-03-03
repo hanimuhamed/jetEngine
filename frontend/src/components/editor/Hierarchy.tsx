@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
-import { useEngineStore } from "../store/engineStore";
-import { SceneSerializer } from "../engine/scene/SceneSerializer";
-import type { Entity } from "../engine/core/Entity";
+import { useEngineStore } from "../../store/engineStore";
+import { SceneSerializer } from "../../engine/scene/SceneSerializer";
+import type { Entity } from "../../engine/core/Entity";
 
 function Hierarchy() {
   const entities = useEngineStore((s) => s.entities);
@@ -51,13 +51,6 @@ function Hierarchy() {
         <div className="hierarchy-actions">
           <button
             className="hierarchy-btn"
-            onClick={() => addPrefabChild(editingPrefabEntity.id)}
-            title="Add Child to Prefab Root"
-          >
-            + Child
-          </button>
-          <button
-            className="hierarchy-btn"
             onClick={() => {
               if (selectedEntityId && selectedEntityId !== editingPrefabEntity.id) {
                 addPrefabChild(selectedEntityId);
@@ -65,9 +58,9 @@ function Hierarchy() {
                 addPrefabChild(editingPrefabEntity.id);
               }
             }}
-            title="Add Child to Selected"
+            title="Add Entity (child of selected)"
           >
-            + Nested
+            + Entity
           </button>
         </div>
         <div className="hierarchy-list">
@@ -91,20 +84,10 @@ function Hierarchy() {
       <div className="hierarchy-actions">
         <button
           className="hierarchy-btn"
-          onClick={() => addEntity()}
-          title="Add Entity"
+          onClick={() => addEntity(undefined, selectedEntityId ?? undefined)}
+          title={selectedEntityId ? "Add Child of Selected" : "Add Entity"}
         >
           + Entity
-        </button>
-        <button
-          className="hierarchy-btn"
-          onClick={() => {
-            if (selectedEntityId) addEntity(undefined, selectedEntityId);
-          }}
-          disabled={!selectedEntityId}
-          title="Add Child Entity"
-        >
-          + Child
         </button>
         <button
           className="hierarchy-btn hierarchy-btn-del"

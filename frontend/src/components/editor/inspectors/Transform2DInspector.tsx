@@ -1,9 +1,9 @@
 // components/inspectors/Transform2DInspector.tsx
 import { useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { Transform2D } from '../../engine/components/Transform2D';
-import DraggableNumber from '../DraggableNumber';
-import type { Entity } from '../../engine/core/Entity';
+import { useEngineStore } from '../../../store/engineStore';
+import { Transform2D } from '../../../engine/components/Transform2D';
+import DraggableNumber from '../../DraggableNumber';
+import type { Entity } from '../../../engine/core/Entity';
 
 /** Find entity in nested tree */
 function findInTree(list: Entity[], id: string): Entity | undefined {

@@ -1,12 +1,12 @@
 // components/inspectors/SpriteRendererInspector.tsx
 import { useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { SpriteRenderer, defaultPentagonPoints } from '../../engine/components/SpriteRenderer';
-import type { ShapeType } from '../../engine/components/SpriteRenderer';
-import { Vec2 } from '../../engine/core/Math2D';
-import DraggableNumber from '../DraggableNumber';
-import { ColorPicker } from '../ColorPicker';
-import type { Entity } from '../../engine/core/Entity';
+import { useEngineStore } from '../../../store/engineStore';
+import { SpriteRenderer, defaultPentagonPoints } from '../../../engine/components/SpriteRenderer';
+import type { ShapeType } from '../../../engine/components/SpriteRenderer';
+import { Vec2 } from '../../../engine/core/Math2D';
+import DraggableNumber from '../../DraggableNumber';
+import { ColorPicker } from '../../ColorPicker';
+import type { Entity } from '../../../engine/core/Entity';
 
 const SHAPE_OPTIONS: ShapeType[] = ['rectangle', 'circle', 'triangle', 'polygon', 'sprite'];
 
@@ -148,6 +148,28 @@ export function SpriteRendererInspector({ entityId }: { entityId: string }) {
           checked={sprite.visible}
           onChange={(e) => update(s => { s.visible = e.target.checked; })}
         />
+      </div>
+
+      <div className="field-group">
+        <label className="field-group-label">Flip</label>
+        <div className="field-row">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={sprite.flipX}
+              onChange={(e) => update(s => { s.flipX = e.target.checked; })}
+            />
+            X
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={sprite.flipY}
+              onChange={(e) => update(s => { s.flipY = e.target.checked; })}
+            />
+            Y
+          </label>
+        </div>
       </div>
 
       {sprite.shapeType === 'sprite' && (
