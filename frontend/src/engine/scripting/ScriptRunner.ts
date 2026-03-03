@@ -1,16 +1,15 @@
 // engine/scripting/ScriptRunner.ts — Sandboxed script execution
 import { Entity } from '../core/Entity';
 import { InputManager } from '../core/InputManager';
-import { Vec2 } from '../core/Math2D';
-import { Transform2D } from '../components/Transform2D';
-import { RigidBody2D } from '../components/RigidBody2D';
-import { Collider2D } from '../components/Collider2D';
-import { SpriteRenderer } from '../components/SpriteRenderer';
-import { Camera2DComponent } from '../components/Camera2DComponent';
 import { ScriptComponent } from '../components/ScriptComponent';
-import { ButtonComponent } from '../components/ButtonComponent';
-import { TextComponent } from '../components/TextComponent';
 import type { CollisionEvent } from '../systems/PhysicsSystem';
+import { emitConsoleEntry } from './scriptConsole';
+import { compileScript } from './compileScript';
+import type { CompiledScript } from './compileScript';
+
+// Re-export for consumers
+export type { ConsoleEntry } from './scriptConsole';
+export { addConsoleListener } from './scriptConsole';
 
 export interface TimeInfo {
   deltaTime: number;
@@ -23,65 +22,6 @@ export interface SceneProxy {
   getAllEntities(): Entity[];
   spawnPrefab(prefabName: string, x: number, y: number): Entity | null;
   destroyEntity(entity: Entity): void;
-}
-
-interface CompiledScript {
-  onStart?: () => void;
-  onUpdate?: (deltaTime: number) => void;
-  onDestroy?: () => void;
-  onCollision?: (other: unknown) => void;
-  onClick?: () => void;
-}
-
-// Console log entry
-export interface ConsoleEntry {
-  level: 'log' | 'warn' | 'error' | 'info';
-  message: string;
-  timestamp: number;
-}
-
-// Global console log store — listeners can subscribe
-type ConsoleListener = (entry: ConsoleEntry) => void;
-const consoleListeners: ConsoleListener[] = [];
-
-export function addConsoleListener(listener: ConsoleListener): () => void {
-  consoleListeners.push(listener);
-  return () => {
-    const idx = consoleListeners.indexOf(listener);
-    if (idx !== -1) consoleListeners.splice(idx, 1);
-  };
-}
-
-function emitConsoleEntry(entry: ConsoleEntry): void {
-  for (const listener of consoleListeners) {
-    listener(entry);
-  }
-}
-
-function createSandboxConsole(): typeof console {
-  const makeLogger = (level: ConsoleEntry['level']) => {
-    return (...args: unknown[]) => {
-      const message = args.map(a => {
-        if (typeof a === 'object') {
-          try { return JSON.stringify(a); }
-          catch { return String(a); }
-        }
-        return String(a);
-      }).join(' ');
-      emitConsoleEntry({ level, message, timestamp: Date.now() });
-      // Also forward to real console
-      const realMethod = level === 'log' ? console.log : level === 'warn' ? console.warn : level === 'error' ? console.error : console.info;
-      realMethod(`[Script] ${message}`);
-    };
-  };
-
-  return {
-    ...console,
-    log: makeLogger('log'),
-    warn: makeLogger('warn'),
-    error: makeLogger('error'),
-    info: makeLogger('info'),
-  };
 }
 
 export class ScriptRunner {
@@ -97,308 +37,14 @@ export class ScriptRunner {
   /** Script asset sources — name → source code. Set before startAll(). */
   public scriptAssets: Map<string, string> = new Map();
 
-  compileScript(
+  compile(
     entity: Entity,
     script: ScriptComponent,
     input: InputManager,
     time: TimeInfo,
-    sceneProxy: SceneProxy
+    sceneProxy: SceneProxy,
   ): CompiledScript | null {
-    try {
-      const transform = entity.getComponent<Transform2D>('Transform2D');
-
-      // Resolve script source: if script references a script asset, use asset source
-      let scriptSource = script.scriptSource;
-      if (script.scriptAssetName && this.scriptAssets.has(script.scriptAssetName)) {
-        scriptSource = this.scriptAssets.get(script.scriptAssetName)!;
-      }
-
-      const sandboxConsole = createSandboxConsole();
-
-      // ── Component proxy builders ────────────────────────
-      // Valid component type names for getComponent()
-      const VALID_COMPONENT_TYPES = [
-        'Transform2D', 'RigidBody2D', 'Collider2D',
-        'SpriteRenderer', 'Camera2DComponent', 'ScriptComponent',
-        'TextComponent', 'ButtonComponent',
-      ];
-
-      function makeTransformProxy(t: Transform2D) {
-        return {
-          position: {
-            get x() { return t.position.x; },
-            set x(v: number) { t.position.x = v; },
-            get y() { return t.position.y; },
-            set y(v: number) { t.position.y = v; },
-          },
-          get rotation() { return t.rotation; },
-          set rotation(v: number) { t.rotation = v; },
-          scale: {
-            get x() { return t.scale.x; },
-            set x(v: number) { t.scale.x = v; },
-            get y() { return t.scale.y; },
-            set y(v: number) { t.scale.y = v; },
-          },
-          translate(dx: number, dy: number) { t.translate(dx, dy); },
-          get enabled() { return t.enabled; },
-          set enabled(v: boolean) { t.enabled = v; },
-        };
-      }
-
-      function makeRigidBodyProxy(rb: RigidBody2D) {
-        return {
-          velocity: {
-            get x() { return rb.velocity.x; },
-            set x(v: number) { rb.velocity.x = v; },
-            get y() { return rb.velocity.y; },
-            set y(v: number) { rb.velocity.y = v; },
-          },
-          acceleration: {
-            get x() { return rb.acceleration.x; },
-            set x(v: number) { rb.acceleration.x = v; },
-            get y() { return rb.acceleration.y; },
-            set y(v: number) { rb.acceleration.y = v; },
-          },
-          get mass() { return rb.mass; },
-          set mass(v: number) { rb.mass = v; },
-          get gravityScale() { return rb.gravityScale; },
-          set gravityScale(v: number) { rb.gravityScale = v; },
-          get isKinematic() { return rb.isKinematic; },
-          set isKinematic(v: boolean) { rb.isKinematic = v; },
-          get drag() { return rb.drag; },
-          set drag(v: number) { rb.drag = v; },
-          get bounciness() { return rb.bounciness; },
-          set bounciness(v: number) { rb.bounciness = v; },
-          get enabled() { return rb.enabled; },
-          set enabled(v: boolean) { rb.enabled = v; },
-          setVelocity(x: number, y: number) { rb.velocity = new Vec2(x, y); },
-        };
-      }
-
-      function makeColliderProxy(c: Collider2D) {
-        return {
-          get width() { return c.width; },
-          set width(v: number) { c.width = v; },
-          get height() { return c.height; },
-          set height(v: number) { c.height = v; },
-          get radius() { return c.radius; },
-          set radius(v: number) { c.radius = v; },
-          get shape() { return c.shape; },
-          set shape(v: string) { c.shape = v as Collider2D['shape']; },
-          offset: {
-            get x() { return c.offset.x; },
-            set x(v: number) { c.offset.x = v; },
-            get y() { return c.offset.y; },
-            set y(v: number) { c.offset.y = v; },
-          },
-          get isTrigger() { return c.isTrigger; },
-          set isTrigger(v: boolean) { c.isTrigger = v; },
-          get showHitbox() { return c.showHitbox; },
-          set showHitbox(v: boolean) { c.showHitbox = v; },
-          get enabled() { return c.enabled; },
-          set enabled(v: boolean) { c.enabled = v; },
-        };
-      }
-
-      function makeSpriteRendererProxy(sr: SpriteRenderer) {
-        return {
-          get color() { return sr.color; },
-          set color(v: string) { sr.color = v; },
-          get shapeType() { return sr.shapeType; },
-          set shapeType(v: string) { sr.shapeType = v as SpriteRenderer['shapeType']; },
-          get width() { return sr.width; },
-          set width(v: number) { sr.width = v; },
-          get height() { return sr.height; },
-          set height(v: number) { sr.height = v; },
-          get visible() { return sr.visible; },
-          set visible(v: boolean) { sr.visible = v; },
-          get layer() { return sr.layer; },
-          set layer(v: number) { sr.layer = v; },
-          get enabled() { return sr.enabled; },
-          set enabled(v: boolean) { sr.enabled = v; },
-          get flipX() { return sr.flipX; },
-          set flipX(v: boolean) { sr.flipX = v; },
-          get flipY() { return sr.flipY; },
-          set flipY(v: boolean) { sr.flipY = v; },
-        };
-      }
-
-      function makeCameraProxy(cam: Camera2DComponent) {
-        return {
-          get backgroundColor() { return cam.backgroundColor; },
-          set backgroundColor(v: string) { cam.backgroundColor = v; },
-          get zoom() { return cam.zoom; },
-          set zoom(v: number) { cam.zoom = v; },
-          get enabled() { return cam.enabled; },
-          set enabled(v: boolean) { cam.enabled = v; },
-        };
-      }
-
-      function makeTextComponentProxy(tc: TextComponent) {
-        return {
-          get text() { return tc.text; },
-          set text(v: string) { tc.text = v; },
-          get fontFamily() { return tc.fontFamily; },
-          set fontFamily(v: string) { tc.fontFamily = v; },
-          get fontSize() { return tc.fontSize; },
-          set fontSize(v: number) { tc.fontSize = v; },
-          get color() { return tc.color; },
-          set color(v: string) { tc.color = v; },
-          get bold() { return tc.bold; },
-          set bold(v: boolean) { tc.bold = v; },
-          get italic() { return tc.italic; },
-          set italic(v: boolean) { tc.italic = v; },
-          get textAlign() { return tc.textAlign; },
-          set textAlign(v: string) { tc.textAlign = v as TextComponent['textAlign']; },
-          get layer() { return tc.layer; },
-          set layer(v: number) { tc.layer = v; },
-          get enabled() { return tc.enabled; },
-          set enabled(v: boolean) { tc.enabled = v; },
-        };
-      }
-
-      function makeButtonComponentProxy(btn: ButtonComponent) {
-        return {
-          get shape() { return btn.shape; },
-          set shape(v: string) { btn.shape = v as ButtonComponent['shape']; },
-          get width() { return btn.width; },
-          set width(v: number) { btn.width = v; },
-          get height() { return btn.height; },
-          set height(v: number) { btn.height = v; },
-          get radius() { return btn.radius; },
-          set radius(v: number) { btn.radius = v; },
-          offset: {
-            get x() { return btn.offset.x; },
-            set x(v: number) { btn.offset.x = v; },
-            get y() { return btn.offset.y; },
-            set y(v: number) { btn.offset.y = v; },
-          },
-          get enabled() { return btn.enabled; },
-          set enabled(v: boolean) { btn.enabled = v; },
-        };
-      }
-
-      function makeComponentProxy(comp: unknown, type: string): unknown {
-        if (type === 'Transform2D') return makeTransformProxy(comp as Transform2D);
-        if (type === 'RigidBody2D') return makeRigidBodyProxy(comp as RigidBody2D);
-        if (type === 'Collider2D') return makeColliderProxy(comp as Collider2D);
-        if (type === 'SpriteRenderer') return makeSpriteRendererProxy(comp as SpriteRenderer);
-        if (type === 'Camera2DComponent') return makeCameraProxy(comp as Camera2DComponent);
-        if (type === 'TextComponent') return makeTextComponentProxy(comp as TextComponent);
-        if (type === 'ButtonComponent') return makeButtonComponentProxy(comp as ButtonComponent);
-        return null;
-      }
-
-      // ── Build the transform proxy (backward compat + new API) ──
-      const transformProxy = transform ? makeTransformProxy(transform) : {
-        position: { x: 0, y: 0 },
-        rotation: 0,
-        scale: { x: 1, y: 1 },
-        translate() {},
-      };
-
-      const entityProxy = {
-        id: entity.id,
-        name: entity.name,
-        get tag() { return entity.tag; },
-        set tag(v: string) { entity.tag = v; },
-        get active() { return entity.active; },
-        set active(v: boolean) { entity.active = v; },
-        getComponent: (type: string) => {
-          if (!VALID_COMPONENT_TYPES.includes(type)) {
-            sandboxConsole.error(`[getComponent] Unknown component type: "${type}". Valid types: ${VALID_COMPONENT_TYPES.join(', ')}`);
-            return null;
-          }
-          const comp = entity.getComponent(type);
-          if (!comp) {
-            sandboxConsole.error(`[getComponent] Entity "${entity.name}" does not have component "${type}".`);
-            return null;
-          }
-          return makeComponentProxy(comp, type);
-        },
-        destroy: () => sceneProxy.destroyEntity(entity),
-      };
-
-      const inputProxy = {
-        isKeyDown: (key: string) => input.isKeyDown(key),
-        isKeyPressed: (key: string) => input.isKeyPressed(key),
-        isMouseButtonDown: (button: number) => input.isMouseButtonDown(button),
-        isMouseButtonPressed: (button: number) => input.isMouseButtonPressed(button),
-        getMousePosition: () => input.getMousePosition(),
-      };
-
-      const timeProxy = {
-        get deltaTime() { return time.deltaTime; },
-        get elapsed() { return time.elapsed; },
-        get frameCount() { return time.frameCount; },
-      };
-
-      const sceneProxyObj = {
-        getEntityByName: (name: string) => sceneProxy.getEntityByName(name),
-        getAllEntities: () => sceneProxy.getAllEntities(),
-        spawn: (prefabName: string, x: number, y: number) => {
-          const spawned = sceneProxy.spawnPrefab(prefabName, x, y);
-          return spawned ? { id: spawned.id, name: spawned.name, tag: spawned.tag } : null;
-        },
-        destroy: (target: { id?: string; name?: string }) => {
-          let e: Entity | null = null;
-          if (target.id) {
-            e = sceneProxy.getAllEntities().find(ent => ent.id === target.id) ?? null;
-          } else if (target.name) {
-            e = sceneProxy.getEntityByName(target.name);
-          }
-          if (e) sceneProxy.destroyEntity(e);
-        },
-      };
-
-      const assetsProxy = {
-        spawn: (prefabName: string, x: number, y: number) => {
-          const spawned = sceneProxy.spawnPrefab(prefabName, x, y);
-          return spawned ? { id: spawned.id, name: spawned.name, tag: spawned.tag } : null;
-        },
-      };
-
-      // Use Function constructor for sandboxing (not eval)
-      // Wrap script in an IIFE that captures function declarations properly
-      const fn = new Function(
-        'entity',
-        'transform',
-        'input',
-        'time',
-        'scene',
-        'assets',
-        'console',
-        `
-        var __onStart, __onUpdate, __onDestroy, __onCollision, __onClick;
-        (function() {
-          ${scriptSource}
-
-          if (typeof onStart === 'function') __onStart = onStart;
-          if (typeof onUpdate === 'function') __onUpdate = onUpdate;
-          if (typeof onDestroy === 'function') __onDestroy = onDestroy;
-          if (typeof onCollision === 'function') __onCollision = onCollision;
-          if (typeof onClick === 'function') __onClick = onClick;
-        })();
-        return { onStart: __onStart, onUpdate: __onUpdate, onDestroy: __onDestroy, onCollision: __onCollision, onClick: __onClick };
-        `
-      );
-
-      const result = fn(
-        entityProxy,
-        transformProxy,
-        inputProxy,
-        timeProxy,
-        sceneProxyObj,
-        assetsProxy,
-        sandboxConsole
-      );
-
-      return result as CompiledScript;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      emitConsoleEntry({ level: 'error', message: `[Compile] "${script.scriptName}" on "${entity.name}": ${msg}`, timestamp: Date.now() });
-      return null;
-    }
+    return compileScript(entity, script, input, time, sceneProxy, this.scriptAssets);
   }
 
   startAll(
@@ -419,7 +65,7 @@ export class ScriptRunner {
       const scripts = entity.getComponentsList().filter(c => c.type === 'ScriptComponent') as ScriptComponent[];
       for (const script of scripts) {
         const key = `${entity.id}::${script.id}`;
-        const compiled = this.compileScript(entity, script, input, time, sceneProxy);
+        const compiled = this.compile(entity, script, input, time, sceneProxy);
         if (compiled) {
           this.compiledScripts.set(key, compiled);
           try {
@@ -447,7 +93,7 @@ export class ScriptRunner {
       for (const script of scripts) {
         const key = `${e.id}::${script.id}`;
         if (this.compiledScripts.has(key)) continue; // already compiled
-        const compiled = this.compileScript(e, script, this._input, this._time, this._sceneProxy);
+        const compiled = this.compile(e, script, this._input, this._time, this._sceneProxy);
         if (compiled) {
           this.compiledScripts.set(key, compiled);
           try {

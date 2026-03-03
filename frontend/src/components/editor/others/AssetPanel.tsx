@@ -1,7 +1,7 @@
 // components/AssetPanel.tsx
 import { useCallback, useRef } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { SpriteRenderer } from '../../engine/components/SpriteRenderer';
+import { useEngineStore } from '../../../store/engineStore';
+import { SpriteRenderer } from '../../../engine/components/SpriteRenderer';
 
 /** Convert a File to a base64 data URL */
 function fileToBase64(file: File): Promise<string> {

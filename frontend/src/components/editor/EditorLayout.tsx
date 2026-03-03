@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react';
-import Panel from './Panel';
-import Hierarchy from './editor/Hierarchy';
-import Inspector from './editor/Inspector';
-import SceneView from './editor/SceneView';
-import AssetPanel from './editor/AssetPanel';
-import ConsolePanel from './editor/ConsolePanel';
-import { useEngineStore } from '../store/engineStore';
+import Panel from '../ui/Panel';
+import Hierarchy from './others/Hierarchy';
+import Inspector from './inspectors/Inspector';
+import SceneView from './scene/SceneView';
+import AssetPanel from './others/AssetPanel';
+import ConsolePanel from './script/ConsolePanel';
+import { useEngineStore } from '../../store/engineStore';
 
 export function EditorLayout() {
   const editingPrefabId = useEngineStore(s => s.editingPrefabId);

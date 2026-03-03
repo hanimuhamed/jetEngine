@@ -4,7 +4,7 @@ import { useEngineStore } from '../../../store/engineStore';
 import { Collider2D } from '../../../engine/components/Collider2D';
 import type { ColliderShape } from '../../../engine/components/Collider2D';
 import { SpriteRenderer } from '../../../engine/components/SpriteRenderer';
-import DraggableNumber from '../../DraggableNumber';
+import DraggableNumber from '../../ui/DraggableNumber';
 import type { Entity } from '../../../engine/core/Entity';
 
 const SHAPE_OPTIONS: ColliderShape[] = ['box', 'circle', 'polygon'];

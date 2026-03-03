@@ -1,6 +1,6 @@
 // components/Toolbar.tsx
 import { useCallback, useRef } from 'react';
-import { useEngineStore } from '../store/engineStore';
+import { useEngineStore } from '../../store/engineStore';
 
 function Toolbar() {
   const engineState = useEngineStore(s => s.engineState);

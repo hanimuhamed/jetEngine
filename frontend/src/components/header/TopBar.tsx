@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useEngineStore } from '../store/engineStore';
+import { useEngineStore } from '../../store/engineStore';
 import Toolbar from './Toolbar';
 import { FileMenu } from './FileMenu';
 

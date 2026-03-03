@@ -1,14 +1,14 @@
 import { useState, useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
-import { Transform2DInspector } from './inspectors/Transform2DInspector';
-import { SpriteRendererInspector } from './inspectors/SpriteRendererInspector';
-import { RigidBody2DInspector } from './inspectors/RigidBody2DInspector';
-import { Collider2DInspector } from './inspectors/Collider2DInspector';
-import { ScriptComponentInspector } from './inspectors/ScriptComponentInspector';
-import { Camera2DInspector } from './inspectors/Camera2DInspector';
-import { TextComponentInspector } from './inspectors/TextComponentInspector';
-import { ButtonComponentInspector } from './inspectors/ButtonComponentInspector';
-import type { Component } from '../../engine/core/Component';
+import { useEngineStore } from '../../../store/engineStore';
+import { Transform2DInspector } from './Transform2DInspector';
+import { SpriteRendererInspector } from './SpriteRendererInspector';
+import { RigidBody2DInspector } from './RigidBody2DInspector';
+import { Collider2DInspector } from './Collider2DInspector';
+import { ScriptComponentInspector } from './ScriptComponentInspector';
+import { Camera2DInspector } from './Camera2DInspector';
+import { TextComponentInspector } from './TextComponentInspector';
+import { ButtonComponentInspector } from './ButtonComponentInspector';
+import type { Component } from '../../../engine/core/Component';
 
 const AVAILABLE_COMPONENTS = [
   'Transform2D',

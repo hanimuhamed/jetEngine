@@ -1,9 +1,9 @@
 // components/inspectors/Camera2DInspector.tsx
 import { useCallback } from 'react';
 import { useEngineStore } from '../../../store/engineStore';
-import { ColorPicker } from '../../ColorPicker';
+import { ColorPicker } from '../../ui/ColorPicker';
 import { Camera2DComponent } from '../../../engine/components/Camera2DComponent';
-import DraggableNumber from '../../DraggableNumber';
+import DraggableNumber from '../../ui/DraggableNumber';
 import type { Entity } from '../../../engine/core/Entity';
 
 /** Find entity in nested tree */

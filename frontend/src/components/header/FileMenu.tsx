@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { useEngineStore } from '../store/engineStore';
+import { useEngineStore } from '../../store/engineStore';
 
 /** Parse a .jet filename into a display name */
 function parseProjectName(filename: string): string {

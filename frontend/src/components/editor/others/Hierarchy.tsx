@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
-import { useEngineStore } from "../../store/engineStore";
-import { SceneSerializer } from "../../engine/scene/SceneSerializer";
-import type { Entity } from "../../engine/core/Entity";
+import { useEngineStore } from "../../../store/engineStore";
+import { SceneSerializer } from "../../../engine/scene/SceneSerializer";
+import type { Entity } from "../../../engine/core/Entity";
 
 function Hierarchy() {
   const entities = useEngineStore((s) => s.entities);

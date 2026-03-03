@@ -1,8 +1,8 @@
 // components/inspectors/TextComponentInspector.tsx
 import { useCallback } from 'react';
-import { ColorPicker } from '../../ColorPicker';
+import { ColorPicker } from '../../ui/ColorPicker';
 import { TextComponent, FONT_OPTIONS } from '../../../engine/components/TextComponent';
-import DraggableNumber from '../../DraggableNumber';
+import DraggableNumber from '../../ui/DraggableNumber';
 import type { Entity } from '../../../engine/core/Entity';
 import { useEngineStore } from '../../../store/engineStore';
 

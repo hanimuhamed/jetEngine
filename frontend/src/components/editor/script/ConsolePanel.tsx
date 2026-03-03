@@ -1,6 +1,6 @@
 // components/ConsolePanel.tsx — In-engine console log viewer
 import { useRef, useEffect, useCallback } from 'react';
-import { useEngineStore } from '../../store/engineStore';
+import { useEngineStore } from '../../../store/engineStore';
 
 const LEVEL_COLORS: Record<string, string> = {
   log: '#e0e0e0',

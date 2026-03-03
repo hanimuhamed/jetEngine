@@ -4,8 +4,8 @@ import { useEngineStore } from '../../../store/engineStore';
 import { SpriteRenderer, defaultPentagonPoints } from '../../../engine/components/SpriteRenderer';
 import type { ShapeType } from '../../../engine/components/SpriteRenderer';
 import { Vec2 } from '../../../engine/core/Math2D';
-import DraggableNumber from '../../DraggableNumber';
-import { ColorPicker } from '../../ColorPicker';
+import DraggableNumber from '../../ui/DraggableNumber';
+import { ColorPicker } from '../../ui/ColorPicker';
 import type { Entity } from '../../../engine/core/Entity';
 
 const SHAPE_OPTIONS: ShapeType[] = ['rectangle', 'circle', 'triangle', 'polygon', 'sprite'];
