@@ -13,6 +13,8 @@ import { RigidBody2D } from '../engine/components/RigidBody2D';
 import { Collider2D } from '../engine/components/Collider2D';
 import { ScriptComponent, DEFAULT_SCRIPT_TEMPLATE } from '../engine/components/ScriptComponent';
 import { Camera2DComponent } from '../engine/components/Camera2DComponent';
+import { TextComponent } from '../engine/components/TextComponent';
+import { ButtonComponent } from '../engine/components/ButtonComponent';
 import type { Component } from '../engine/core/Component';
 import type { EngineState } from '../engine/core/GameLoop';
 import type { ConsoleEntry } from '../engine/scripting/ScriptRunner';
@@ -113,11 +115,13 @@ export interface EngineStore {
   // Project name
   projectName: string;
   setProjectName: (name: string) => void;
+  newProject: () => void;
 
   // Prefab editing mode
   editingPrefabId: string | null;
   editingPrefabEntity: Entity | null;
   startEditingPrefab: (assetId: string) => void;
+  addPrefabChild: (parentId?: string) => void;
   savePrefab: () => void;
   cancelPrefabEdit: () => void;
 
@@ -386,6 +390,12 @@ export const useEngineStore = create<EngineStore>((set, get) => {
         }
         case 'Camera2DComponent':
           comp = new Camera2DComponent();
+          break;
+        case 'TextComponent':
+          comp = new TextComponent();
+          break;
+        case 'ButtonComponent':
+          comp = new ButtonComponent();
           break;
       }
       if (comp) {
@@ -662,6 +672,31 @@ export const useEngineStore = create<EngineStore>((set, get) => {
 
     projectName: 'Untitled Project',
     setProjectName: (name) => set({ projectName: name }),
+    newProject: () => {
+      const { gameLoop } = get();
+      if (gameLoop) {
+        gameLoop.stop();
+      }
+      const { scene: newScene, cameraEntityId: newCamId } = createInitialScene();
+      set({
+        scene: newScene,
+        entities: [...newScene.entities],
+        selectedEntityId: null,
+        engineState: 'EDITING',
+        cameraEntityId: newCamId,
+        assets: [],
+        projectName: 'Untitled Project',
+        editingPrefabId: null,
+        editingPrefabEntity: null,
+        editingScriptEntityId: null,
+        editingScriptComponentId: null,
+        editingScriptAssetId: null,
+        consoleLogs: [],
+      });
+      if (gameLoop) {
+        gameLoop.setScene(newScene);
+      }
+    },
 
     _tick: 0,
     syncEntities: () => {
@@ -703,6 +738,19 @@ export const useEngineStore = create<EngineStore>((set, get) => {
         editingPrefabEntity: null,
         selectedEntityId: null,
       });
+    },
+
+    addPrefabChild: (parentId) => {
+      const { editingPrefabEntity, _tick } = get();
+      if (!editingPrefabEntity) return;
+      const parent = parentId
+        ? findEntityInTree([editingPrefabEntity], parentId) ?? editingPrefabEntity
+        : editingPrefabEntity;
+      const child = new Entity(`Child_${parent.children.length}`);
+      child.addComponent(new Transform2D());
+      child.addComponent(new SpriteRenderer('#ffffff', 'rectangle', 50, 50));
+      parent.addChild(child);
+      set({ _tick: _tick + 1, selectedEntityId: child.id });
     },
     cancelPrefabEdit: () => {
       set({

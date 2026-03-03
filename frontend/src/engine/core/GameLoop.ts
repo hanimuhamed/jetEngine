@@ -8,6 +8,9 @@ import type { TimeInfo, SceneProxy } from '../scripting/ScriptRunner';
 import { Scene } from '../scene/Scene';
 import { SceneSerializer } from '../scene/SceneSerializer';
 import { Transform2D } from '../components/Transform2D';
+import { ButtonComponent } from '../components/ButtonComponent';
+import { getWorldTransform } from './WorldTransform';
+import { Vec2 } from './Math2D';
 
 export type EngineState = 'EDITING' | 'PLAYING' | 'PAUSED';
 
@@ -130,6 +133,8 @@ export class GameLoop {
     }
     this.scriptRunner.destroyAll();
     this.timeInfo = { deltaTime: 0, elapsed: 0, frameCount: 0 };
+    // Switch back to editor camera
+    this.renderer.useEditorCamera();
   }
 
   /** Editor-mode render (no physics/scripts, just draw) */
@@ -160,6 +165,31 @@ export class GameLoop {
     // Dispatch collision events to scripts
     this.scriptRunner.dispatchCollisions(this.physicsSystem.collisionEvents);
 
+    // Dispatch onClick for ButtonComponent entities clicked this frame
+    if (this.inputManager.isMouseButtonPressed(0)) {
+      const mouseScreen = this.inputManager.getMousePosition();
+      const mouseWorld = this.renderer.screenToWorld(new Vec2(mouseScreen.x, mouseScreen.y));
+      const clicked: Entity[] = [];
+      for (const entity of allEntities) {
+        const btn = entity.getComponent<ButtonComponent>('ButtonComponent');
+        if (!btn) continue;
+        const world = getWorldTransform(entity);
+        const dx = mouseWorld.x - (world.position.x + btn.offset.x);
+        const dy = mouseWorld.y - (world.position.y + btn.offset.y);
+        if (btn.shape === 'circle') {
+          const r = btn.radius * Math.max(Math.abs(world.scaleX), Math.abs(world.scaleY));
+          if (dx * dx + dy * dy <= r * r) clicked.push(entity);
+        } else {
+          const hw = (btn.width / 2) * Math.abs(world.scaleX);
+          const hh = (btn.height / 2) * Math.abs(world.scaleY);
+          if (Math.abs(dx) <= hw && Math.abs(dy) <= hh) clicked.push(entity);
+        }
+      }
+      if (clicked.length > 0) {
+        this.scriptRunner.dispatchClicks(clicked);
+      }
+    }
+
     // Process destroy queue
     for (const entity of this.destroyQueue) {
       if (entity.parent) {
@@ -174,9 +204,12 @@ export class GameLoop {
     // Sync camera position from camera entity transform
     this.renderer.syncCameraFromEntity();
 
+    // Use game camera for rendering during play
+    this.renderer.useGameCamera();
+
     // Render — use camera background color during play
     this.renderer.clear(true);
-    this.renderer.renderEntities(allEntities, null);
+    this.renderer.renderEntities(allEntities, null, false);
 
     // Notify store
     this.onFrameCallback?.();

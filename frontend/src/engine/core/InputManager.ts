@@ -7,6 +7,7 @@ export class InputManager {
   private keysDown: Set<string> = new Set();
   private keysPressed: Set<string> = new Set();
   private mouseButtons: Set<number> = new Set();
+  private mouseButtonsPressed: Set<number> = new Set();
   private mousePosition: Vec2 = Vec2.zero();
   private _canvas: HTMLCanvasElement | null = null;
 
@@ -39,6 +40,9 @@ export class InputManager {
   };
 
   private _onMouseDown = (e: MouseEvent) => {
+    if (!this.mouseButtons.has(e.button)) {
+      this.mouseButtonsPressed.add(e.button);
+    }
     this.mouseButtons.add(e.button);
   };
 
@@ -85,6 +89,10 @@ export class InputManager {
     return this.mouseButtons.has(button);
   }
 
+  isMouseButtonPressed(button: number): boolean {
+    return this.mouseButtonsPressed.has(button);
+  }
+
   getMousePosition(): { x: number; y: number } {
     return { x: this.mousePosition.x, y: this.mousePosition.y };
   }
@@ -92,5 +100,6 @@ export class InputManager {
   /** Call at end of each frame to clear per-frame states */
   endFrame(): void {
     this.keysPressed.clear();
+    this.mouseButtonsPressed.clear();
   }
 }

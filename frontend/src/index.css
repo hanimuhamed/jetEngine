@@ -9,6 +9,7 @@
   --danger-color: #ff4a4a;
   --success-color: #4aff6e;
   --border-radius: 6px;
+  --field-color: #1e2028;
 }
 
 * {
@@ -60,6 +61,28 @@ html, body, #root {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 200px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.top-bar-project-name:hover {
+  background: var(--accent-color);
+  color: var(--text-color);
+}
+
+.top-bar-project-input {
+  font-size: 12px;
+  color: var(--text-color);
+  background: var(--accent-color);
+  border: 1px solid var(--highlight-color);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-style: italic;
+  outline: none;
   max-width: 200px;
 }
 
@@ -447,12 +470,50 @@ html, body, #root {
   height: 100%;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scene-ratio-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: var(--primary-color);
+  border-bottom: 1px solid #2a2d3a;
+  height: 32px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.scene-ratio-label {
+  font-size: 11px;
+  color: #888;
+}
+
+.scene-ratio-select {
+  background: var(--field-color);
+  color: var(--text-color);
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: 'Space Mono', monospace;
+  cursor: pointer;
+  outline: none;
+}
+
+.scene-canvas-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--field-color);
 }
 
 .scene-canvas {
   display: block;
-  width: 100%;
-  height: 100%;
   cursor: crosshair;
 }
 
@@ -560,7 +621,7 @@ html, body, #root {
 
 input[type="number"] {
   appearance: textfield;
-  background: #1e2028;
+  background: var(--field-color);
   color: var(--text-color);
   border: 1px solid transparent;
   border-radius: 4px;
@@ -588,7 +649,7 @@ input[type="number"].dragging {
 }
 
 .inspector-select {
-  background: #1e2028;
+  background: var(--field-color);
   color: var(--text-color);
   border: 1px solid transparent;
   border-radius: 4px;
@@ -1216,3 +1277,80 @@ input[type="checkbox"] {
   background: #2a2d38;
 }
   */
+
+/* ─── Modern Color Picker ──────────────── */
+.color-picker-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.color-picker-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-picker-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 2px solid #3a3d4a;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.color-picker-swatch:hover {
+  border-color: #6c8aff;
+}
+
+.color-picker-hex-input {
+  background: #1e2028;
+  color: var(--text-color);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  flex: 1;
+  outline: none;
+  min-width: 0;
+}
+
+.color-picker-hex-input:focus {
+  border-color: #6c8aff;
+}
+
+.color-picker-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  margin-top: 4px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  background: #23252f;
+  padding: 8px;
+}
+
+.color-picker-popover .react-colorful {
+  width: 180px;
+  height: 160px;
+}
+
+.color-picker-popover .react-colorful__saturation {
+  border-radius: 6px 6px 0 0;
+}
+
+.color-picker-popover .react-colorful__hue {
+  height: 14px;
+  border-radius: 0 0 6px 6px;
+}
+
+.color-picker-popover .react-colorful__saturation-pointer,
+.color-picker-popover .react-colorful__hue-pointer {
+  width: 16px;
+  height: 16px;
+}

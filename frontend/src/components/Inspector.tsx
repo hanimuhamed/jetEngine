@@ -6,6 +6,8 @@ import { RigidBody2DInspector } from './inspectors/RigidBody2DInspector';
 import { Collider2DInspector } from './inspectors/Collider2DInspector';
 import { ScriptComponentInspector } from './inspectors/ScriptComponentInspector';
 import { Camera2DInspector } from './inspectors/Camera2DInspector';
+import { TextComponentInspector } from './inspectors/TextComponentInspector';
+import { ButtonComponentInspector } from './inspectors/ButtonComponentInspector';
 import type { Component } from '../engine/core/Component';
 
 const AVAILABLE_COMPONENTS = [
@@ -15,6 +17,8 @@ const AVAILABLE_COMPONENTS = [
   'Collider2D',
   'ScriptComponent',
   'Camera2DComponent',
+  'TextComponent',
+  'ButtonComponent',
 ];
 
 function getInspectorForComponent(
@@ -34,6 +38,10 @@ function getInspectorForComponent(
       return <ScriptComponentInspector key={comp.id} entityId={entityId} componentId={comp.id} />;
     case 'Camera2DComponent':
       return <Camera2DInspector key={comp.id} entityId={entityId} />;
+    case 'TextComponent':
+      return <TextComponentInspector key={comp.id} entityId={entityId} />;
+    case 'ButtonComponent':
+      return <ButtonComponentInspector key={comp.id} entityId={entityId} />;
     default:
       return null;
   }

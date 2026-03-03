@@ -8,6 +8,8 @@ import { RigidBody2D } from '../components/RigidBody2D';
 import { Collider2D } from '../components/Collider2D';
 import { ScriptComponent } from '../components/ScriptComponent';
 import { Camera2DComponent } from '../components/Camera2DComponent';
+import { TextComponent } from '../components/TextComponent';
+import { ButtonComponent } from '../components/ButtonComponent';
 import { Scene } from './Scene';
 
 export interface SerializedScene {
@@ -38,6 +40,10 @@ function createComponentFromType(type: string): Component | null {
       return new ScriptComponent();
     case 'Camera2DComponent':
       return new Camera2DComponent();
+    case 'TextComponent':
+      return new TextComponent();
+    case 'ButtonComponent':
+      return new ButtonComponent();
     default:
       console.warn(`Unknown component type: ${type}`);
       return null;

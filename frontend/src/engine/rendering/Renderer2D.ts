@@ -5,6 +5,7 @@ import { Transform2D } from '../components/Transform2D';
 import { SpriteRenderer } from '../components/SpriteRenderer';
 import { Camera2DComponent } from '../components/Camera2DComponent';
 import { Collider2D } from '../components/Collider2D';
+import { TextComponent } from '../components/TextComponent';
 import { getWorldTransform } from '../core/WorldTransform';
 import { convexHull } from '../systems/PhysicsSystem';
 
@@ -16,7 +17,15 @@ export interface Camera2D {
 export class Renderer2D {
   private ctx: CanvasRenderingContext2D | null = null;
   private _canvas: HTMLCanvasElement | null = null;
+
+  /** Game camera — driven by Camera2DComponent entity during play */
   public camera: Camera2D = { position: Vec2.zero(), zoom: 1 };
+
+  /** Editor camera — independent camera for scene editing view */
+  public editorCamera: Camera2D = { position: Vec2.zero(), zoom: 0.8 };
+
+  /** Which camera is currently active for transforms (switched by render mode) */
+  private activeCamera: Camera2D = this.editorCamera;
 
   /** The camera entity reference — set by game loop or editor */
   public cameraEntity: Entity | null = null;
@@ -43,25 +52,31 @@ export class Renderer2D {
     }
   }
 
+  /** Switch active camera to editor or game camera */
+  useEditorCamera(): void { this.activeCamera = this.editorCamera; }
+  useGameCamera(): void { this.activeCamera = this.camera; }
+
   /** Convert world position to screen position (Y-up: +Y moves objects up on screen) */
   worldToScreen(worldPos: Vec2): Vec2 {
     if (!this._canvas) return worldPos;
+    const cam = this.activeCamera;
     const cx = this._canvas.width / 2;
     const cy = this._canvas.height / 2;
     return new Vec2(
-      (worldPos.x - this.camera.position.x) * this.camera.zoom + cx,
-      -(worldPos.y - this.camera.position.y) * this.camera.zoom + cy
+      (worldPos.x - cam.position.x) * cam.zoom + cx,
+      -(worldPos.y - cam.position.y) * cam.zoom + cy
     );
   }
 
   /** Convert screen position to world position (Y-up) */
   screenToWorld(screenPos: Vec2): Vec2 {
     if (!this._canvas) return screenPos;
+    const cam = this.activeCamera;
     const cx = this._canvas.width / 2;
     const cy = this._canvas.height / 2;
     return new Vec2(
-      (screenPos.x - cx) / this.camera.zoom + this.camera.position.x,
-      -(screenPos.y - cy) / this.camera.zoom + this.camera.position.y
+      (screenPos.x - cx) / cam.zoom + cam.position.x,
+      -(screenPos.y - cy) / cam.zoom + cam.position.y
     );
   }
 
@@ -69,22 +84,15 @@ export class Renderer2D {
     if (!this.ctx || !this._canvas) return;
 
     let bgColor = '#1a1a2e';
-    let bgImage: HTMLImageElement | null = null;
-
     if (useBackgroundColor && this.cameraEntity) {
       const cam = this.cameraEntity.getComponent<Camera2DComponent>('Camera2DComponent');
       if (cam) {
         bgColor = cam.backgroundColor;
-        bgImage = cam.getBackgroundImage();
       }
     }
 
     this.ctx.fillStyle = bgColor;
     this.ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
-
-    if (bgImage) {
-      this.ctx.drawImage(bgImage, 0, 0, this._canvas.width, this._canvas.height);
-    }
   }
 
   drawGrid(): void {
@@ -92,10 +100,10 @@ export class Renderer2D {
     const ctx = this.ctx;
     const w = this._canvas.width;
     const h = this._canvas.height;
-    const gridSize = 50 * this.camera.zoom;
+    const gridSize = 50 * this.activeCamera.zoom;
 
-    const offsetX = (-this.camera.position.x * this.camera.zoom + w / 2) % gridSize;
-    const offsetY = (this.camera.position.y * this.camera.zoom + h / 2) % gridSize;
+    const offsetX = (-this.activeCamera.position.x * this.activeCamera.zoom + w / 2) % gridSize;
+    const offsetY = (this.activeCamera.position.y * this.activeCamera.zoom + h / 2) % gridSize;
 
     ctx.strokeStyle = '#ffffff10';
     ctx.lineWidth = 1;
@@ -130,8 +138,8 @@ export class Renderer2D {
 
     // Start with identity, then apply camera transform
     ctx.translate(cx, cy);
-    ctx.scale(this.camera.zoom, this.camera.zoom);
-    ctx.translate(-this.camera.position.x, this.camera.position.y);
+    ctx.scale(this.activeCamera.zoom, this.activeCamera.zoom);
+    ctx.translate(-this.activeCamera.position.x, this.activeCamera.position.y);
 
     // Walk the hierarchy from root to this entity and multiply local TRS
     const chain: Entity[] = [];
@@ -197,47 +205,60 @@ export class Renderer2D {
     if (entity.hasComponent('Camera2DComponent')) return;
 
     const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
-    if (!sprite || !sprite.visible) return;
+    const textComp = entity.getComponent<TextComponent>('TextComponent');
+    if (!sprite && !textComp) return;
+    if (sprite && !sprite.visible && !textComp) return;
 
     const ctx = this.ctx;
 
     ctx.save();
     this.applyEntityTransform(ctx, entity);
 
-    // Draw shape at origin — the transform already placed us correctly
-    const hw = sprite.width / 2;
-    const hh = sprite.height / 2;
+    // --- Sprite Rendering ---
+    if (sprite && sprite.visible) {
+      const hw = sprite.width / 2;
+      const hh = sprite.height / 2;
 
-    const image = sprite.getImage();
+      const image = sprite.getImage();
 
-    if (sprite.shapeType === 'sprite' && image) {
-      ctx.drawImage(image, -hw, -hh, sprite.width, sprite.height);
-    } else if (sprite.shapeType === 'circle') {
-      ctx.fillStyle = sprite.color;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (sprite.shapeType === 'triangle') {
-      ctx.fillStyle = sprite.color;
-      ctx.beginPath();
-      ctx.moveTo(0, -hh);
-      ctx.lineTo(-hw, hh);
-      ctx.lineTo(hw, hh);
-      ctx.closePath();
-      ctx.fill();
-    } else if (sprite.shapeType === 'polygon' && sprite.polygonPoints.length >= 3) {
-      ctx.fillStyle = sprite.color;
-      ctx.beginPath();
-      ctx.moveTo(sprite.polygonPoints[0].x, -sprite.polygonPoints[0].y); // Y-flip for screen
-      for (let i = 1; i < sprite.polygonPoints.length; i++) {
-        ctx.lineTo(sprite.polygonPoints[i].x, -sprite.polygonPoints[i].y);
+      if (sprite.shapeType === 'sprite' && image) {
+        ctx.drawImage(image, -hw, -hh, sprite.width, sprite.height);
+      } else if (sprite.shapeType === 'circle') {
+        ctx.fillStyle = sprite.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (sprite.shapeType === 'triangle') {
+        ctx.fillStyle = sprite.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -hh);
+        ctx.lineTo(-hw, hh);
+        ctx.lineTo(hw, hh);
+        ctx.closePath();
+        ctx.fill();
+      } else if (sprite.shapeType === 'polygon' && sprite.polygonPoints.length >= 3) {
+        ctx.fillStyle = sprite.color;
+        ctx.beginPath();
+        ctx.moveTo(sprite.polygonPoints[0].x, -sprite.polygonPoints[0].y);
+        for (let i = 1; i < sprite.polygonPoints.length; i++) {
+          ctx.lineTo(sprite.polygonPoints[i].x, -sprite.polygonPoints[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillStyle = sprite.color;
+        ctx.fillRect(-hw, -hh, sprite.width, sprite.height);
       }
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      // rectangle (default)
-      ctx.fillStyle = sprite.color;
-      ctx.fillRect(-hw, -hh, sprite.width, sprite.height);
+    }
+
+    // --- Text Rendering ---
+    if (textComp && textComp.text) {
+      const style = `${textComp.italic ? 'italic ' : ''}${textComp.bold ? 'bold ' : ''}${textComp.fontSize}px ${textComp.fontFamily}`;
+      ctx.font = style;
+      ctx.fillStyle = textComp.color;
+      ctx.textAlign = textComp.textAlign as CanvasTextAlign;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(textComp.text, 0, 0);
     }
 
     ctx.restore();
@@ -256,7 +277,7 @@ export class Renderer2D {
       const center = this.localToScreen(entity, collider.offset.x, collider.offset.y);
       const world = getWorldTransform(entity);
       const avgScale = (Math.abs(world.scaleX) + Math.abs(world.scaleY)) / 2;
-      const screenRadius = collider.radius * avgScale * this.camera.zoom;
+      const screenRadius = collider.radius * avgScale * this.activeCamera.zoom;
 
       ctx.save();
       ctx.strokeStyle = '#00ff00';
@@ -400,7 +421,7 @@ export class Renderer2D {
     ctx.restore();
   }
 
-  renderEntities(entities: Entity[], selectedId: string | null): void {
+  renderEntities(entities: Entity[], selectedId: string | null, isEditorMode: boolean = true): void {
     // Sort by layer
     const sorted = [...entities].sort((a, b) => {
       const sa = a.getComponent<SpriteRenderer>('SpriteRenderer');
@@ -412,13 +433,15 @@ export class Renderer2D {
       this.renderEntity(entity);
     }
 
-    // Render hitboxes on top
-    for (const entity of sorted) {
-      this.renderHitbox(entity);
+    // Render hitboxes only in editor mode
+    if (isEditorMode) {
+      for (const entity of sorted) {
+        this.renderHitbox(entity);
+      }
     }
 
-    // Draw selection on top
-    if (selectedId) {
+    // Draw selection on top (editor only)
+    if (isEditorMode && selectedId) {
       const selected = entities.find(e => e.id === selectedId);
       if (selected) {
         this.drawSelectionBox(selected);

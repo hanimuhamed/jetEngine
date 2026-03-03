@@ -16,6 +16,7 @@ function Hierarchy() {
   const editingPrefabId = useEngineStore((s) => s.editingPrefabId);
   const editingPrefabEntity = useEngineStore((s) => s.editingPrefabEntity);
   const cancelPrefabEdit = useEngineStore((s) => s.cancelPrefabEdit);
+  const addPrefabChild = useEngineStore((s) => s.addPrefabChild);
   const _tick = useEngineStore((s) => s._tick);
   void _tick;
 
@@ -46,6 +47,28 @@ function Hierarchy() {
       <div className="hierarchy">
         <div className="hierarchy-prefab-header">
           <span className="prefab-edit-badge">Editing Prefab</span>
+        </div>
+        <div className="hierarchy-actions">
+          <button
+            className="hierarchy-btn"
+            onClick={() => addPrefabChild(editingPrefabEntity.id)}
+            title="Add Child to Prefab Root"
+          >
+            + Child
+          </button>
+          <button
+            className="hierarchy-btn"
+            onClick={() => {
+              if (selectedEntityId && selectedEntityId !== editingPrefabEntity.id) {
+                addPrefabChild(selectedEntityId);
+              } else {
+                addPrefabChild(editingPrefabEntity.id);
+              }
+            }}
+            title="Add Child to Selected"
+          >
+            + Nested
+          </button>
         </div>
         <div className="hierarchy-list">
           <HierarchyItem

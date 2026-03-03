@@ -8,6 +8,7 @@ import { Collider2D } from '../components/Collider2D';
 import { SpriteRenderer } from '../components/SpriteRenderer';
 import { Camera2DComponent } from '../components/Camera2DComponent';
 import { ScriptComponent } from '../components/ScriptComponent';
+import { ButtonComponent } from '../components/ButtonComponent';
 import type { CollisionEvent } from '../systems/PhysicsSystem';
 
 export interface TimeInfo {
@@ -28,6 +29,7 @@ interface CompiledScript {
   onUpdate?: (deltaTime: number) => void;
   onDestroy?: () => void;
   onCollision?: (other: unknown) => void;
+  onClick?: () => void;
 }
 
 // Console log entry
@@ -308,7 +310,7 @@ export class ScriptRunner {
         'assets',
         'console',
         `
-        var __onStart, __onUpdate, __onDestroy, __onCollision;
+        var __onStart, __onUpdate, __onDestroy, __onCollision, __onClick;
         (function() {
           ${scriptSource}
 
@@ -316,8 +318,9 @@ export class ScriptRunner {
           if (typeof onUpdate === 'function') __onUpdate = onUpdate;
           if (typeof onDestroy === 'function') __onDestroy = onDestroy;
           if (typeof onCollision === 'function') __onCollision = onCollision;
+          if (typeof onClick === 'function') __onClick = onClick;
         })();
-        return { onStart: __onStart, onUpdate: __onUpdate, onDestroy: __onDestroy, onCollision: __onCollision };
+        return { onStart: __onStart, onUpdate: __onUpdate, onDestroy: __onDestroy, onCollision: __onCollision, onClick: __onClick };
         `
       );
 
@@ -438,6 +441,22 @@ export class ScriptRunner {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         emitConsoleEntry({ level: 'error', message: `[onCollision] "${self.name}": ${msg}`, timestamp: Date.now() });
+      }
+    }
+  }
+
+  /** Dispatch onClick to all scripts on entities that were clicked */
+  dispatchClicks(clickedEntities: Entity[]): void {
+    for (const entity of clickedEntities) {
+      for (const [key, compiled] of this.compiledScripts) {
+        if (!key.startsWith(entity.id + '::')) continue;
+        if (!compiled.onClick) continue;
+        try {
+          compiled.onClick();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          emitConsoleEntry({ level: 'error', message: `[onClick] "${entity.name}": ${msg}`, timestamp: Date.now() });
+        }
       }
     }
   }

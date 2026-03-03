@@ -5,6 +5,7 @@ import { SpriteRenderer, defaultPentagonPoints } from '../../engine/components/S
 import type { ShapeType } from '../../engine/components/SpriteRenderer';
 import { Vec2 } from '../../engine/core/Math2D';
 import DraggableNumber from '../DraggableNumber';
+import { ColorPicker } from '../ColorPicker';
 import type { Entity } from '../../engine/core/Entity';
 
 const SHAPE_OPTIONS: ShapeType[] = ['rectangle', 'circle', 'triangle', 'polygon', 'sprite'];
@@ -99,20 +100,10 @@ export function SpriteRendererInspector({ entityId }: { entityId: string }) {
 
       <div className="field-group">
         <label className="field-group-label">Color</label>
-        <div className="field-row">
-          <input
-            type="color"
-            className="inspector-color"
-            value={sprite.color}
-            onChange={(e) => update(s => { s.color = e.target.value; })}
-          />
-          <input
-            type="text"
-            className="inspector-text-input"
-            value={sprite.color}
-            onChange={(e) => update(s => { s.color = e.target.value; })}
-          />
-        </div>
+        <ColorPicker
+          color={sprite.color}
+          onChange={(c) => update(s => { s.color = c; })}
+        />
       </div>
 
       <div className="field-group">

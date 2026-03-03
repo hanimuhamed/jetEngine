@@ -124,8 +124,8 @@ function ScriptEditor() {
 
   // The title to display
   const editorTitle = isAssetMode
-    ? `${scriptAsset?.name ?? 'Script Asset'}`
-    : `${script?.scriptName ?? 'Script'} — ${entity?.name ?? ''}`;
+    ? `${scriptAsset?.name ?? 'Script Asset'}.js`
+    : `${script?.scriptName ?? 'Script'}.js — ${entity?.name ?? ''}`;
 
   const isActive = isAssetMode ? !!scriptAsset : (!!entity && !!script);
 

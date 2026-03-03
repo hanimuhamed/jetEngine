@@ -40,8 +40,13 @@ export default function App() {
   const assets = useEngineStore((s) => s.assets);
   const saveScene = useEngineStore((s) => s.saveScene);
   const loadScene = useEngineStore((s) => s.loadScene);
+  const newProject = useEngineStore((s) => s.newProject);
   const projectName = useEngineStore((s) => s.projectName);
   const setProjectName = useEngineStore((s) => s.setProjectName);
+
+  // Inline project name editing
+  const [editingProjectName, setEditingProjectName] = useState(false);
+  const [projectNameDraft, setProjectNameDraft] = useState(projectName);
 
   // Get the prefab name for display
   const editingPrefabName = editingPrefabId
@@ -74,6 +79,12 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [fileMenuOpen]);
 
+  const handleNewProject = useCallback(() => {
+    setFileMenuOpen(false);
+    if (!confirm('Create a new project? Unsaved changes will be lost.')) return;
+    newProject();
+  }, [newProject]);
+
   const handleSave = useCallback(async (e: React.MouseEvent) => {
     // Prevent the outside-click handler from closing the menu before we can show the picker
     e.stopPropagation();
@@ -89,7 +100,7 @@ export default function App() {
           suggestedName: `${safeName}.jet`,
           types: [{
             description: 'Jet Engine Project',
-            accept: { 'application/json': ['.jet'] },
+            accept: { 'application/octet-stream': ['.jet'] },
           }],
         });
       } catch (err) {
@@ -102,10 +113,16 @@ export default function App() {
 
     const json = saveScene();
 
+    // Compress using gzip
+    const encoder = new TextEncoder();
+    const inputStream = new Blob([encoder.encode(json)]).stream();
+    const compressedStream = inputStream.pipeThrough(new CompressionStream('gzip'));
+    const compressedBlob = await new Response(compressedStream).blob();
+
     if (fileHandle) {
       try {
         const writable = await fileHandle.createWritable();
-        await writable.write(json);
+        await writable.write(compressedBlob);
         await writable.close();
         const name = fileHandle.name;
         setProjectName(parseProjectName(name));
@@ -116,8 +133,7 @@ export default function App() {
     }
 
     // Fallback: auto-download
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(compressedBlob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${safeName}.jet`;
@@ -130,16 +146,24 @@ export default function App() {
     fileInputRef.current?.click();
   }, []);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      loadScene(reader.result as string);
-      // Parse project name from filename
+    try {
+      // Try to decompress as gzip first
+      const decompressedStream = file.stream().pipeThrough(new DecompressionStream('gzip'));
+      const text = await new Response(decompressedStream).text();
+      loadScene(text);
       setProjectName(parseProjectName(file.name));
-    };
-    reader.readAsText(file);
+    } catch {
+      // Fall back to plain text (legacy JSON files)
+      const reader = new FileReader();
+      reader.onload = () => {
+        loadScene(reader.result as string);
+        setProjectName(parseProjectName(file.name));
+      };
+      reader.readAsText(file);
+    }
     e.target.value = '';
   }, [loadScene, setProjectName]);
 
@@ -215,18 +239,45 @@ export default function App() {
           </button>
           {fileMenuOpen && (
             <div className="file-menu-dropdown">
-              <div className="file-menu-item" onMouseDown={handleSave}>
-                Save Project
+              <div className="file-menu-item" onClick={handleNewProject}>
+                New Project
               </div>
               <div className="file-menu-item" onClick={handleLoad}>
                 Load Project
+              </div>
+              <div className="file-menu-item" onMouseDown={handleSave}>
+                Save Project
               </div>
             </div>
           )}
         </div>
 
-        <span className="top-bar-title">✈ jetEngine</span>
-        <span className="top-bar-project-name">{projectName}</span>
+        <span className="top-bar-title">jetEngine</span>
+        {editingProjectName ? (
+          <input
+            className="top-bar-project-input"
+            value={projectNameDraft}
+            autoFocus
+            onChange={e => setProjectNameDraft(e.target.value)}
+            onBlur={() => {
+              setEditingProjectName(false);
+              const trimmed = projectNameDraft.trim();
+              if (trimmed) setProjectName(trimmed);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              if (e.key === 'Escape') { setEditingProjectName(false); setProjectNameDraft(projectName); }
+            }}
+          />
+        ) : (
+          <span
+            className="top-bar-project-name"
+            onClick={() => { setEditingProjectName(true); setProjectNameDraft(projectName); }}
+            title="Click to rename project"
+          >
+            {projectName}
+          </span>
+        )}
 
         <Toolbar />
 
@@ -347,7 +398,7 @@ export default function App() {
       )}
 
       <div className="footer">
-        ✈ jetEngine v0.1.0 — 2D Game Engine
+        jetEngine v0.1.0 — 2D Game Engine
       </div>
     </div>
   );

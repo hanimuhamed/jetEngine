@@ -187,7 +187,7 @@ function AssetPanel() {
                     onClick={() => handleAssetClick(asset)}
                   >
                     <div className="prefab-icon">📜</div>
-                    <span className="asset-name">{asset.name}</span>
+                    <span className="asset-name">{asset.name}.js</span>
                     <button
                       className="asset-remove-btn"
                       onClick={(e) => {
