@@ -69,7 +69,7 @@ export function hitTestCorner(
 }
 
 /** Render a white rectangle outline showing the camera's viewport in world space */
-export function renderCameraOutline(r: Renderer2D, camEntity: Entity): void {
+export function renderCameraOutline(r: Renderer2D, camEntity: Entity, aspectRatio: number | null): void {
   const canvas = r.canvas;
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -79,10 +79,30 @@ export function renderCameraOutline(r: Renderer2D, camEntity: Entity): void {
   const t = camEntity.getComponent<Transform2D>('Transform2D');
   if (!cam || !t) return;
 
-  const REF_W = 1920;
-  const REF_H = 1080;
-  const vw = REF_W / cam.zoom;
-  const vh = REF_H / cam.zoom;
+  // Use the current canvas dimensions as the reference viewport,
+  // then apply the aspect ratio to determine the camera outline shape.
+  const canvasW = canvas.width;
+  const canvasH = canvas.height;
+
+  let refW: number;
+  let refH: number;
+  if (aspectRatio) {
+    // Use canvas height as reference and compute width from aspect ratio
+    // This shows the exact viewport that will be visible during gameplay
+    if (canvasW / canvasH > aspectRatio) {
+      refH = canvasH;
+      refW = canvasH * aspectRatio;
+    } else {
+      refW = canvasW;
+      refH = canvasW / aspectRatio;
+    }
+  } else {
+    refW = canvasW;
+    refH = canvasH;
+  }
+
+  const vw = refW / cam.zoom / r.editorCamera.zoom;
+  const vh = refH / cam.zoom / r.editorCamera.zoom;
 
   const cx = t.position.x;
   const cy = t.position.y;

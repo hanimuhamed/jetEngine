@@ -19,6 +19,7 @@ interface ScaleHandle {
   startScaleY: number;
   startW: number;
   startH: number;
+  worldRotation: number; // entity world rotation in degrees at drag start
 }
 
 /** Returns refs and event handlers for the SceneView canvas. */
@@ -75,6 +76,7 @@ export function useSceneInput(
             const transform = selectedEntity.getComponent<Transform2D>('Transform2D');
             const sprite = selectedEntity.getComponent<SpriteRenderer>('SpriteRenderer');
             if (transform) {
+              const world = getWorldTransform(selectedEntity);
               dragModeRef.current = 'scale';
               scaleHandleRef.current = {
                 corner,
@@ -84,6 +86,7 @@ export function useSceneInput(
                 startScaleY: transform.scale.y,
                 startW: sprite ? sprite.width : 50,
                 startH: sprite ? sprite.height : 50,
+                worldRotation: world.rotation,
               };
             }
             return;
@@ -153,7 +156,7 @@ export function useSceneInput(
       useEngineStore.getState().syncEntities();
     }
 
-    // Scale drag
+    // Scale drag — project onto entity's rotated local axes
     if (dragModeRef.current === 'scale') {
       const handle = scaleHandleRef.current;
       if (!handle) return;
@@ -164,10 +167,32 @@ export function useSceneInput(
       const transform = entity.getComponent<Transform2D>('Transform2D');
       if (!transform) return;
 
-      const scaleFactorX = Math.abs(handle.startWorld.x - handle.anchorWorld.x) > 0.01
-        ? (worldPt.x - handle.anchorWorld.x) / (handle.startWorld.x - handle.anchorWorld.x) : 1;
-      const scaleFactorY = Math.abs(handle.startWorld.y - handle.anchorWorld.y) > 0.01
-        ? (worldPt.y - handle.anchorWorld.y) / (handle.startWorld.y - handle.anchorWorld.y) : 1;
+      // Use the entity's world rotation to define its local axes in world space
+      const rad = (handle.worldRotation * Math.PI) / 180;
+      const cosR = Math.cos(rad);
+      const sinR = Math.sin(rad);
+      // Local X axis in world space (right direction)
+      const localXx = cosR;
+      const localXy = sinR;
+      // Local Y axis in world space (up direction)
+      const localYx = -sinR;
+      const localYy = cosR;
+
+      // Vector from anchor to current mouse in world space
+      const curDx = worldPt.x - handle.anchorWorld.x;
+      const curDy = worldPt.y - handle.anchorWorld.y;
+      // Vector from anchor to start mouse in world space
+      const startDx = handle.startWorld.x - handle.anchorWorld.x;
+      const startDy = handle.startWorld.y - handle.anchorWorld.y;
+
+      // Project both onto local axes
+      const curProjX = curDx * localXx + curDy * localXy;
+      const curProjY = curDx * localYx + curDy * localYy;
+      const startProjX = startDx * localXx + startDy * localXy;
+      const startProjY = startDx * localYx + startDy * localYy;
+
+      const scaleFactorX = Math.abs(startProjX) > 0.01 ? curProjX / startProjX : 1;
+      const scaleFactorY = Math.abs(startProjY) > 0.01 ? curProjY / startProjY : 1;
 
       transform.scale.x = handle.startScaleX * scaleFactorX;
       transform.scale.y = handle.startScaleY * scaleFactorY;

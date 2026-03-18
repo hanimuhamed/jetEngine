@@ -22,6 +22,7 @@ export function useEditorRenderLoop(engineState: EngineState, editingPrefabId: s
         cameraEntityId,
         editingPrefabId: prefabId,
         editingPrefabEntity,
+        sceneAspectRatio,
       } = useEngineStore.getState();
 
       r.useEditorCamera();
@@ -46,7 +47,7 @@ export function useEditorRenderLoop(engineState: EngineState, editingPrefabId: s
       r.drawGrid();
       r.renderEntities(allEntities, selectedEntityId);
 
-      if (camEntity && r.canvas) renderCameraOutline(r, camEntity);
+      if (camEntity && r.canvas) renderCameraOutline(r, camEntity, sceneAspectRatio);
 
       editorRafRef.current = requestAnimationFrame(renderEditorFrame);
     };

@@ -27,6 +27,8 @@ export interface SceneProxy {
 export class ScriptRunner {
   // Key: `${entity.id}::${script.id}` to support multiple scripts per entity
   private compiledScripts: Map<string, CompiledScript> = new Map();
+  /** Track the ScriptComponent reference for each key to check enabled at runtime */
+  private scriptComponents: Map<string, ScriptComponent> = new Map();
   private started: Set<string> = new Set();
 
   // Cached references for dynamic compilation of spawned entities
@@ -54,6 +56,7 @@ export class ScriptRunner {
     sceneProxy: SceneProxy
   ): void {
     this.compiledScripts.clear();
+    this.scriptComponents.clear();
     this.started.clear();
     // Store references for later dynamic compilation
     this._input = input;
@@ -64,10 +67,12 @@ export class ScriptRunner {
       // Support multiple scripts via getScriptComponents
       const scripts = entity.getComponentsList().filter(c => c.type === 'ScriptComponent') as ScriptComponent[];
       for (const script of scripts) {
+        if (!script.enabled) continue; // skip disabled scripts
         const key = `${entity.id}::${script.id}`;
         const compiled = this.compile(entity, script, input, time, sceneProxy);
         if (compiled) {
           this.compiledScripts.set(key, compiled);
+          this.scriptComponents.set(key, script);
           try {
             compiled.onStart?.();
           } catch (err) {
@@ -96,6 +101,7 @@ export class ScriptRunner {
         const compiled = this.compile(e, script, this._input, this._time, this._sceneProxy);
         if (compiled) {
           this.compiledScripts.set(key, compiled);
+          this.scriptComponents.set(key, script);
           try {
             compiled.onStart?.();
           } catch (err) {
@@ -112,6 +118,9 @@ export class ScriptRunner {
   updateAll(deltaTime: number): void {
     for (const [key, compiled] of this.compiledScripts) {
       if (!this.started.has(key)) continue;
+      // Skip disabled scripts at runtime
+      const scriptComp = this.scriptComponents.get(key);
+      if (scriptComp && !scriptComp.enabled) continue;
       try {
         compiled.onUpdate?.(deltaTime);
       } catch (err) {
@@ -178,6 +187,7 @@ export class ScriptRunner {
       }
     }
     this.compiledScripts.clear();
+    this.scriptComponents.clear();
     this.started.clear();
   }
 }

@@ -510,7 +510,7 @@ html, body, #root {
 }
 
 .scene-ratio-custom-input {
-  width: 40px;
+  width: 32px;
   background: var(--field-color);
   color: var(--text-color);
   border: 1px solid #3a3d4a;
@@ -735,6 +735,25 @@ input[type="number"].dragging {
 }
 
 .inspector-text-input:focus {
+  border-color: var(--highlight-color);
+}
+
+.inspector-textarea {
+  background: #1e2028;
+  color: var(--text-color);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  width: 100%;
+  outline: none;
+  min-width: 0;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.inspector-textarea:focus {
   border-color: var(--highlight-color);
 }
 
@@ -1035,7 +1054,7 @@ input[type="checkbox"] {
 .bottom-row {
   flex: 1;
   display: flex;
-  min-height: 0;
+  min-height: 120px;
   gap: 0;
 }
 

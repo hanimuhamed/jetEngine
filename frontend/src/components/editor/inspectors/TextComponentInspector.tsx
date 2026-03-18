@@ -44,10 +44,10 @@ export function TextComponentInspector({ entityId }: { entityId: string }) {
     <div className="inspector-fields">
       <div className="field-group">
         <label className="field-group-label">Text</label>
-        <input
-          type="text"
-          className="inspector-text-input"
+        <textarea
+          className="inspector-textarea"
           value={tc.text}
+          rows={3}
           onChange={(e) => update(c => { c.text = e.target.value; })}
         />
       </div>

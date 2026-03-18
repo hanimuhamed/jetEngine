@@ -53,7 +53,15 @@ export function drawText(ctx: CanvasRenderingContext2D, textComp: TextComponent)
   ctx.fillStyle = textComp.color;
   ctx.textAlign = textComp.textAlign as CanvasTextAlign;
   ctx.textBaseline = 'middle';
-  ctx.fillText(textComp.text, 0, 0);
+
+  const lines = textComp.text.split('\n');
+  const lineHeight = textComp.fontSize * 1.2;
+  const totalHeight = (lines.length - 1) * lineHeight;
+  const startY = -totalHeight / 2;
+
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], 0, startY + i * lineHeight);
+  }
 }
 
 // ── Selection box ─────────────────────────────────────

@@ -334,7 +334,7 @@ export class PhysicsSystem {
     for (const entity of entities) {
       const rb = entity.getComponent<RigidBody2D>('RigidBody2D');
       const transform = entity.getComponent<Transform2D>('Transform2D');
-      if (!rb || !transform || rb.isKinematic) continue;
+      if (!rb || !transform || rb.isKinematic || !rb.enabled) continue;
 
       rb.velocity = rb.velocity.add(GRAVITY.scale(rb.gravityScale * dt));
       rb.velocity = rb.velocity.add(rb.acceleration.scale(dt));
@@ -346,7 +346,10 @@ export class PhysicsSystem {
 
     // Collision detection & response (SAT)
     const collidables = entities.filter(
-      e => e.hasComponent('Collider2D') && e.hasComponent('Transform2D')
+      e => {
+        const col = e.getComponent<Collider2D>('Collider2D');
+        return col && col.enabled && e.hasComponent('Transform2D');
+      }
     );
 
     for (let i = 0; i < collidables.length; i++) {

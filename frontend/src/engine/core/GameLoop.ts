@@ -14,10 +14,12 @@ import { Vec2 } from './Math2D';
 
 export type EngineState = 'EDITING' | 'PLAYING' | 'PAUSED';
 
-/** Recursively collect all entities (including children) for systems to process */
+/** Recursively collect all entities (including children) for systems to process.
+ *  Skips inactive entities and their children — they are excluded entirely. */
 function collectAllEntities(entities: Entity[]): Entity[] {
   const result: Entity[] = [];
   for (const entity of entities) {
+    if (!entity.active) continue; // skip inactive entity and all its children
     result.push(entity);
     if (entity.children.length > 0) {
       result.push(...collectAllEntities(entity.children));

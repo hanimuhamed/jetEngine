@@ -100,7 +100,7 @@ function Hierarchy() {
           🗑
         </button>
       </div>
-      <div className="hierarchy-list">
+      <div className="hierarchy-list" onClick={() => selectEntity(null)}>
         {entities.length === 0 && (
           <div className="hierarchy-empty">No entities in scene</div>
         )}
@@ -243,7 +243,7 @@ function HierarchyItem({
         ref={itemRef}
         className={`tree-item ${selected ? "tree-item-selected" : ""} ${dropClass}`}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
-        onClick={() => onSelect(entity.id)}
+        onClick={(e) => { e.stopPropagation(); onSelect(entity.id); }}
         onDoubleClick={handleDoubleClick}
         draggable={!isCamera}
         onDragStart={handleDragStart}

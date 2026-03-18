@@ -28,7 +28,9 @@ function SceneView() {
     if (canvas) setCanvas(canvas);
   }, [setCanvas]);
 
-  // Resize canvas to fit container (with optional aspect ratio)
+  // Resize canvas to fit container
+  // Editor mode: always free ratio (fill container)
+  // Playing mode: apply aspect ratio to constrain gameplay view
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -37,7 +39,8 @@ function SceneView() {
     const observer = new ResizeObserver(() => {
       const cw = container.clientWidth;
       const ch = container.clientHeight - 32;
-      if (aspectRatio) {
+      const isPlaying = engineState === 'PLAYING' || engineState === 'PAUSED';
+      if (isPlaying && aspectRatio) {
         if (cw / ch > aspectRatio) {
           canvas.height = ch;
           canvas.width = Math.round(ch * aspectRatio);
@@ -52,7 +55,7 @@ function SceneView() {
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [aspectRatio]);
+  }, [aspectRatio, engineState]);
 
   // Editor render loop
   useEditorRenderLoop(engineState, editingPrefabId);

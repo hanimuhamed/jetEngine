@@ -204,18 +204,22 @@ export class Renderer2D {
     const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
     const textComp = entity.getComponent<TextComponent>('TextComponent');
     if (!sprite && !textComp) return;
-    if (sprite && !sprite.visible && !textComp) return;
+    // Skip if all renderable components are disabled
+    const spriteActive = sprite && sprite.enabled;
+    const textActive = textComp && textComp.enabled;
+    if (!spriteActive && !textActive) return;
+    if (sprite && !sprite.visible && !textActive) return;
 
     const ctx = this.ctx;
     ctx.save();
     this.applyEntityTransform(ctx, entity);
 
-    if (sprite && (sprite.flipX || sprite.flipY)) {
+    if (spriteActive && (sprite.flipX || sprite.flipY)) {
       ctx.scale(sprite.flipX ? -1 : 1, sprite.flipY ? -1 : 1);
     }
 
-    if (sprite && sprite.visible) drawSprite(ctx, sprite);
-    if (textComp) drawText(ctx, textComp);
+    if (spriteActive && sprite.visible) drawSprite(ctx, sprite);
+    if (textActive) drawText(ctx, textComp);
 
     ctx.restore();
   }
