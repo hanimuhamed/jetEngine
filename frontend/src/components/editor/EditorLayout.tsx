@@ -20,7 +20,7 @@ export function EditorLayout() {
   const [rightWidth, setRightWidth] = useState(280);
   const [leftWidth, setLeftWidth] = useState(220);
   const [topHeight, setTopHeight] = useState(600);
-  const [bottomRightWidth, setBottomRightWidth] = useState(340);
+  const [bottomLeftWidth, setBottomLeftWidth] = useState(1000);
 
   const editingPrefabName = editingPrefabId
     ? assets.find(a => a.id === editingPrefabId)?.name ?? 'Prefab'
@@ -36,7 +36,7 @@ export function EditorLayout() {
     const startRight = rightWidth;
     const startLeft = leftWidth;
     const startTopHeight = topHeight;
-    const startBottomRightWidth = bottomRightWidth;
+    const startBottomLeftWidth = bottomLeftWidth;
     const columnHeight = columnRef.current?.clientHeight ?? 800;
 
     const onMouseMove = (ev: MouseEvent) => {
@@ -53,8 +53,8 @@ export function EditorLayout() {
         if (newTop > 150 && newTop < columnHeight - 150) setTopHeight(newTop);
       }
       if (direction === 'bottomVertical') {
-        const newWidth = startBottomRightWidth - (ev.clientX - startX);
-        if (newWidth > 200 && newWidth < 700) setBottomRightWidth(newWidth);
+        const newWidth = startBottomLeftWidth + (ev.clientX - startX);
+        if (newWidth > 200 && newWidth < 1200) setBottomLeftWidth(newWidth);
       }
     };
 
@@ -103,11 +103,25 @@ export function EditorLayout() {
 
         {/* BOTTOM (ASSETS + CONSOLE) */}
         <div className="bottom-row">
-          <Panel title="ASSETS" className="middle-bottom">
+          <Panel
+            title="ASSETS"
+            className="middle-bottom"
+            style={{
+              flex: `0 1 ${bottomLeftWidth}px`,
+              minWidth: '200px',
+            }}
+          >
             <AssetPanel />
           </Panel>
           <div className="divider vertical" onMouseDown={e => startResize('bottomVertical', e)} />
-          <Panel title="CONSOLE" className="bottom-right" style={{ width: `${bottomRightWidth}px` }}>
+          <Panel
+            title="CONSOLE"
+            className="bottom-right"
+            style={{
+              flex: '1 2 0px',
+              minWidth: '250px',
+            }}
+          >
             <ConsolePanel />
           </Panel>
         </div>

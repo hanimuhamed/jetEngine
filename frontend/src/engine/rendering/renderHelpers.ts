@@ -83,18 +83,7 @@ export function drawSelectionBox(
   const tr = localToScreen(entity, hw, hh);
   const br = localToScreen(entity, hw, -hh);
   const bl = localToScreen(entity, -hw, -hh);
-
-  // Expand corners outward by padding
-  const padding = 4;
-  const cx = (tl.x + tr.x + br.x + bl.x) / 4;
-  const cy = (tl.y + tr.y + br.y + bl.y) / 4;
-  const expand = (c: Vec2) => {
-    const dx = c.x - cx;
-    const dy = c.y - cy;
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    return new Vec2(c.x + (dx / len) * padding, c.y + (dy / len) * padding);
-  };
-  const corners = [expand(tl), expand(tr), expand(br), expand(bl)];
+  const corners = [tl, tr, br, bl];
 
   ctx.save();
   ctx.strokeStyle = '#4a9eff';

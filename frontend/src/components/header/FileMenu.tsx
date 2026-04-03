@@ -42,7 +42,7 @@ export function FileMenu() {
     e.stopPropagation();
     setFileMenuOpen(false);
 
-    const safeName = projectName.replace(/\s+/g, '_').toLowerCase();
+    const safeName = projectName.replace(/\s+/g, '_').toLowerCase() || 'untitled_project';
     let fileHandle: FileSystemFileHandle | null = null;
 
     if ('showSaveFilePicker' in window) {
@@ -75,11 +75,21 @@ export function FileMenu() {
       } catch { /* fall through */ }
     }
 
+    const fallbackNameInput = window.prompt('Save project as', `${safeName}.jet`);
+    if (fallbackNameInput === null) return;
+    const trimmed = fallbackNameInput.trim();
+    const fallbackName = (trimmed || `${safeName}.jet`).toLowerCase().endsWith('.jet')
+      ? (trimmed || `${safeName}.jet`)
+      : `${trimmed || safeName}.jet`;
+
     const url = URL.createObjectURL(compressedBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${safeName}.jet`;
+    a.download = fallbackName;
+    document.body.appendChild(a);
     a.click();
+    a.remove();
+    setProjectName(parseProjectName(fallbackName));
     URL.revokeObjectURL(url);
   }, [saveScene, projectName, setProjectName]);
 

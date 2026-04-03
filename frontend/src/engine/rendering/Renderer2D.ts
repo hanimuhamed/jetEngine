@@ -124,6 +124,15 @@ export class Renderer2D {
     return getWorldTransform(entity);
   }
 
+  private isEntityActiveInHierarchy(entity: Entity): boolean {
+    let current: Entity | null = entity;
+    while (current) {
+      if (!current.active) return false;
+      current = current.parent;
+    }
+    return true;
+  }
+
   /**
    * Build the full canvas transform for an entity:
    * camera transform → parent hierarchy → local TRS
@@ -198,7 +207,7 @@ export class Renderer2D {
   }
 
   renderEntity(entity: Entity): void {
-    if (!this.ctx || !entity.active) return;
+    if (!this.ctx || !this.isEntityActiveInHierarchy(entity)) return;
     if (entity.hasComponent('Camera2DComponent')) return;
 
     const sprite = entity.getComponent<SpriteRenderer>('SpriteRenderer');
@@ -227,6 +236,7 @@ export class Renderer2D {
   /** Draw collider hitbox outlines — delegates to renderHelpers */
   renderHitbox(entity: Entity): void {
     if (!this.ctx) return;
+    if (!this.isEntityActiveInHierarchy(entity)) return;
     drawHitbox(this.ctx, entity, this.localToScreen.bind(this), this.activeCamera.zoom);
   }
 
@@ -262,7 +272,7 @@ export class Renderer2D {
     // Draw selection on top (editor only)
     if (isEditorMode && selectedId) {
       const selected = entities.find(e => e.id === selectedId);
-      if (selected) {
+      if (selected && this.isEntityActiveInHierarchy(selected)) {
         this.drawSelectionBox(selected);
       }
     }
@@ -278,6 +288,7 @@ export class Renderer2D {
     });
 
     for (const entity of sorted) {
+      if (!this.isEntityActiveInHierarchy(entity)) continue;
       // Skip camera entity
       if (entity.hasComponent('Camera2DComponent')) continue;
 

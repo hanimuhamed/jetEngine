@@ -11,6 +11,7 @@ import type { Renderer2D } from '../../../engine/rendering/Renderer2D';
 export function flattenEntities(entities: Entity[]): Entity[] {
   const result: Entity[] = [];
   for (const entity of entities) {
+    if (!entity.active) continue;
     result.push(entity);
     if (entity.children.length > 0) {
       result.push(...flattenEntities(entity.children));
@@ -78,6 +79,7 @@ export function renderCameraOutline(r: Renderer2D, camEntity: Entity, aspectRati
   const cam = camEntity.getComponent<Camera2DComponent>('Camera2DComponent');
   const t = camEntity.getComponent<Transform2D>('Transform2D');
   if (!cam || !t) return;
+  const world = getWorldTransform(camEntity);
 
   // Use the current canvas dimensions as the reference viewport,
   // then apply the aspect ratio to determine the camera outline shape.
@@ -101,11 +103,11 @@ export function renderCameraOutline(r: Renderer2D, camEntity: Entity, aspectRati
     refH = canvasH;
   }
 
-  const vw = refW / cam.zoom / r.editorCamera.zoom;
-  const vh = refH / cam.zoom / r.editorCamera.zoom;
+  const vw = refW / cam.zoom;
+  const vh = refH / cam.zoom;
 
-  const cx = t.position.x;
-  const cy = t.position.y;
+  const cx = world.position.x;
+  const cy = world.position.y;
   const corners = [
     new Vec2(cx - vw / 2, cy + vh / 2),
     new Vec2(cx + vw / 2, cy + vh / 2),
