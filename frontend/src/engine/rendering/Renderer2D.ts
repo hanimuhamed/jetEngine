@@ -82,7 +82,7 @@ export class Renderer2D {
   clear(useBackgroundColor: boolean = false): void {
     if (!this.ctx || !this._canvas) return;
 
-    let bgColor = '#1a1a2e';
+    let bgColor = "#191c20";
     if (useBackgroundColor && this.cameraEntity) {
       const cam = this.cameraEntity.getComponent<Camera2DComponent>('Camera2DComponent');
       if (cam) {

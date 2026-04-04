@@ -118,7 +118,7 @@ export function renderCameraOutline(r: Renderer2D, camEntity: Entity, aspectRati
   const screenCorners = corners.map(c => r.worldToScreen(c));
 
   ctx.save();
-  ctx.strokeStyle = '#ffffff40';
+  ctx.strokeStyle = '#dac6ff60';
   ctx.lineWidth = 1;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
@@ -127,7 +127,7 @@ export function renderCameraOutline(r: Renderer2D, camEntity: Entity, aspectRati
   ctx.closePath();
   ctx.stroke();
 
-  ctx.fillStyle = '#ffffff88';
+  ctx.fillStyle = '#dac6ff60';
   ctx.font = '11px monospace';
   ctx.setLineDash([]);
   ctx.fillText('Camera', screenCorners[0].x + 4, screenCorners[0].y - 6);

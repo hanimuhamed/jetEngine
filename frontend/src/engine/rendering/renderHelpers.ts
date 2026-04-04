@@ -86,18 +86,18 @@ export function drawSelectionBox(
   const corners = [tl, tr, br, bl];
 
   ctx.save();
-  ctx.strokeStyle = '#4a9eff';
+  ctx.strokeStyle = "#f92672";
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
   ctx.moveTo(corners[0].x, corners[0].y);
   for (let i = 1; i < 4; i++) ctx.lineTo(corners[i].x, corners[i].y);
   ctx.closePath();
-  ctx.stroke();
+  ctx.stroke(); 
   ctx.setLineDash([]);
 
   const handleSize = 6;
-  ctx.fillStyle = '#4a9eff';
+  ctx.fillStyle = "#f92672";
   for (const c of corners) {
     ctx.fillRect(c.x - handleSize / 2, c.y - handleSize / 2, handleSize, handleSize);
   }
@@ -138,7 +138,7 @@ function drawCircleHitbox(
   const screenRadius = collider.radius * avgScale * activeZoom;
 
   ctx.save();
-  ctx.strokeStyle = '#00ff00';
+  ctx.strokeStyle = "#a6e22e";
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
   ctx.beginPath();
@@ -177,7 +177,7 @@ function drawPolygonHitbox(
   if (hull.length < 3) return;
 
   ctx.save();
-  ctx.strokeStyle = '#00ff00';
+  ctx.strokeStyle = "#a6e22e";
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
   ctx.beginPath();
@@ -206,7 +206,7 @@ function drawBoxHitbox(
   const c3 = localToScreen(entity, -hw + ox,  hh + oy);
 
   ctx.save();
-  ctx.strokeStyle = '#00ff00';
+  ctx.strokeStyle = "#a6e22e";
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
   ctx.beginPath();
