@@ -4,13 +4,12 @@ A browser-based 2D game engine + editor built with React and TypeScript.
 
 ## Current Features
 
-- Fast iteration workflow with near-instant edits while developing
-- Very simple JavaScript scripting model (easy to start, no heavy framework)
-- Minimal editor complexity: focused tooling instead of overloaded UI
-- Component-based entity setup that stays easy to reason about
-- Visual scene editing for transforms, hierarchy, and component tuning
-- Integrated asset workflow for images, prefabs, and scripts
-- Built-in collision preview/debug tools for quick gameplay testing
+- Low-latency edit–run iteration
+- Lightweight JavaScript scripting (no heavy frameworks)
+- Minimal editor UI focused on core tooling
+- Direct scene editing (transforms, hierarchy, components)
+- Basic asset pipeline (images, prefabs, scripts)
+- Collision visualization and debug tools
 
 ## Getting Started
 
