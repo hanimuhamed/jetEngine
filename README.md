@@ -2,7 +2,7 @@
 
 # jetEngine
 
-A browser-based 2D game engine + editor built with React and TypeScript.
+A browser-based 2D game engine + editor built with React and TypeScript. [NOTE: ongoing project]
 
 ## Current Features
 
