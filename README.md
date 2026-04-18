@@ -1,3 +1,5 @@
+<img src="frontend/public/static/jetengine.png" alt="Title" width="1440"/>  
+
 # jetEngine
 
 A browser-based 2D game engine + editor built with React and TypeScript.
