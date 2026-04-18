@@ -1,4 +1,4 @@
-<img src="public/static/jetengine.png" alt="Title" width="1440"/>  
+<img src="frontend/public/static/jetengine.png" alt="Title" width="1440"/>  
 
 # jetEngine
 
